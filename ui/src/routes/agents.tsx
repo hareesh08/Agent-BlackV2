@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { Collapsible } from "@/components/shared/Collapsible";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, type DiscoAgent } from "@/lib/api";
+import { usePolling } from "@/hooks/use-polling";
 
 export const Route = createFileRoute("/agents")({
-  head: () => ({ meta: [      { title: "Agents · Agent Black" }] }),
+  head: () => ({ meta: [{ title: "Agents · Agent Black" }] }),
   component: AgentsPage,
 });
 
@@ -31,26 +32,14 @@ const DEFAULT_TOOLS: Record<string, string[]> = {
 };
 
 function AgentsPage() {
-  const [agents, setAgents] = useState<DiscoAgent[]>([]);
   const [logs, setLogs] = useState<Record<string, { stdout: string; stderr: string }>>({});
-  const [loading, setLoading] = useState(true);
 
-  const fetchData = () => {
-    api.getDiscoveredAgents().then((res) => {
-      const list = res.agents.map((a) => ({
-        ...a,
-        tools: DEFAULT_TOOLS[a.name] || [],
-      }));
-      setAgents(list as any);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  };
+  const agentsPoll = usePolling<{ agents: DiscoAgent[] }>(() => api.getDiscoveredAgents(), { interval: 30000 });
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const agents = (agentsPoll.data?.agents ?? []).map((a) => ({
+    ...a,
+    tools: DEFAULT_TOOLS[a.name] || [],
+  }));
 
   const fetchLogs = async (name: string) => {
     try {
@@ -60,8 +49,8 @@ function AgentsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-4 py-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-[1100px] px-3 py-4 sm:px-4 sm:py-6 flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Agents</h1>
         <div className="flex items-center gap-2">
           <button
@@ -79,14 +68,14 @@ function AgentsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {agentsPoll.loading ? (
         <div className="flex items-center justify-center py-16 text-sm text-text-muted">
           Loading agents...
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {agents.map((a: any) => (
-            <div key={a.name} className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-3">
+            <div key={a.name} className="rounded-xl border border-border bg-surface p-3 flex flex-col gap-3 sm:p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">

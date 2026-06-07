@@ -1,35 +1,118 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Download, ZoomIn, ZoomOut, Workflow, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Download, ZoomIn, ZoomOut, Maximize2, Minimize2, Workflow, Loader2, BarChart3, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
+import { MermaidDiagram } from "@/components/shared/MermaidDiagram";
+import { useAppStore } from "@/lib/store";
 
 export const Route = createFileRoute("/diagram")({
-  head: () => ({ meta: [      { title: "Diagram · Agent Black" }] }),
+  head: () => ({ meta: [{ title: "Diagram · Agent Black" }] }),
   component: DiagramPage,
 });
 
-const tabs = ["Agent Flow", "Tech Stack"] as const;
+const tabs = ["Project Flow", "Tech Stack", "Architecture"] as const;
 
 function DiagramPage() {
-  const [tab, setTab] = useState<(typeof tabs)[number]>("Agent Flow");
+  const [tab, setTab] = useState<(typeof tabs)[number]>("Project Flow");
   const [diagram, setDiagram] = useState("");
+  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const messages = useAppStore((s) => s.messages);
+
+  // Get the latest assistant message with report data
+  const latestReport = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === "assistant" && m.sections && Object.values(m.sections).some(Boolean)) {
+        return m;
+      }
+    }
+    return null;
+  })();
+
+  const loadDiagram = useCallback(async () => {
+    setLoading(true);
+    setDiagram("");
+    setDescription("");
+    try {
+      if (tab === "Project Flow" && latestReport) {
+        // Dynamic diagram based on actual report
+        const reportData: Record<string, any> = {};
+        if (latestReport.sections) {
+          for (const [k, v] of Object.entries(latestReport.sections)) {
+            if (v) {
+              try { reportData[k] = JSON.parse(v); } catch { reportData[k] = v; }
+            }
+          }
+        }
+        const userMsg = messages.find(
+          (m) => m.role === "user" && m.timestamp <= (latestReport?.timestamp || Infinity)
+        );
+        const queryText = userMsg?.content || "research query";
+        const res = await api.getDiagramFromReport({
+          query: queryText,
+          report: reportData,
+          agents_used: latestReport.agentsUsed || [],
+          events: latestReport.taskProgress || [],
+        });
+        setDiagram(res.diagram);
+        setDescription(res.description);
+      } else if (tab === "Tech Stack") {
+        const res = await api.getDiagramTechStack();
+        setDiagram(res.diagram);
+        setDescription(res.description);
+      } else {
+        // Architecture — static agent flow (no report)
+        const res = await api.getDiagramAgentFlow();
+        setDiagram(res.diagram);
+        setDescription(res.description);
+      }
+    } catch {
+      setDiagram("");
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, latestReport, messages]);
+
+  useEffect(() => { loadDiagram(); }, [loadDiagram]);
 
   useEffect(() => {
-    setLoading(true);
-    const fetchDiagram = tab === "Agent Flow" ? api.getDiagramAgentFlow : api.getDiagramTechStack;
-    fetchDiagram().then((res) => {
-      setDiagram(res.diagram);
-    }).catch(() => {
-      setDiagram("");
-    }).finally(() => setLoading(false));
-  }, [tab]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && fullscreen) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  const handleFullscreen = useCallback(() => {
+    if (!fullscreen && containerRef.current) {
+      containerRef.current.requestFullscreen?.();
+    } else if (fullscreen) {
+      document.exitFullscreen?.();
+    }
+    setFullscreen((f) => !f);
+  }, [fullscreen]);
+
+  const zoomIn = useCallback(() => setZoom((z) => Math.min(5, z + 0.2)), []);
+  const zoomOut = useCallback(() => setZoom((z) => Math.max(0.2, z - 0.2)), []);
+  const zoomLabel = `${Math.round(zoom * 100)}%`;
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-4 py-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Diagram</h1>
-        <div className="inline-flex rounded-lg border border-border bg-surface p-0.5 text-xs">
+    <div className="mx-auto w-full max-w-[1100px] px-3 py-4 sm:px-4 sm:py-6 flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">Diagram</h1>
+          {tab === "Project Flow" && latestReport && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              Live Report
+            </span>
+          )}
+        </div>
+        <div className="inline-flex flex-wrap rounded-lg border border-border bg-surface p-0.5 text-xs">
           {tabs.map((t) => (
             <button
               key={t}
@@ -44,30 +127,61 @@ function DiagramPage() {
         </div>
       </div>
 
-      <div className="relative min-h-[520px] rounded-xl border border-dashed border-border bg-surface/50 flex items-center justify-center">
+      {description && (
+        <p className="text-xs text-text-muted">{description}</p>
+      )}
+
+      <div
+        ref={containerRef}
+        className={`relative min-h-[300px] rounded-xl border border-dashed border-border bg-surface/50 flex items-center justify-center sm:min-h-[520px] ${
+          fullscreen
+            ? "fixed inset-0 z-50 min-h-screen rounded-none border-0 bg-background"
+            : ""
+        }`}
+      >
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-text-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading diagram...
+            Generating diagram...
           </div>
         ) : diagram ? (
-          <pre className="p-6 text-xs font-mono text-text-secondary overflow-x-auto w-full max-h-[600px] leading-relaxed">
-            {diagram}
-          </pre>
+          <div className="p-6 w-full overflow-x-auto overflow-y-auto">
+            <MermaidDiagram code={diagram} zoom={zoom} onZoomChange={setZoom} />
+          </div>
         ) : (
           <div className="text-center">
             <Workflow className="mx-auto mb-3 h-10 w-10 text-text-muted" />
-            <p className="text-sm font-medium">{tab} diagram</p>
+            <p className="text-sm font-medium">
+              {tab === "Project Flow" && !latestReport
+                ? "No project report yet"
+                : `${tab} diagram`}
+            </p>
             <p className="mt-1 text-xs text-text-muted">
-              Diagram will render here once the backend generates it.
+              {tab === "Project Flow" && !latestReport
+                ? "Run a query first to generate a project-specific diagram."
+                : "Diagram will render here once available."}
             </p>
           </div>
         )}
 
         {diagram && (
-          <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-sm">
-            <IconBtn><ZoomOut className="h-4 w-4" /></IconBtn>
-            <IconBtn><ZoomIn className="h-4 w-4" /></IconBtn>
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-sm sm:bottom-4 sm:right-4">
+            <IconBtn onClick={loadDiagram} title="Refresh">
+              <RefreshCw className="h-4 w-4" />
+            </IconBtn>
+            <IconBtn onClick={zoomOut} title="Zoom out">
+              <ZoomOut className="h-4 w-4" />
+            </IconBtn>
+            <span className="px-1 text-[10px] font-mono text-text-secondary min-w-[3ch] text-center">
+              {zoomLabel}
+            </span>
+            <IconBtn onClick={zoomIn} title="Zoom in">
+              <ZoomIn className="h-4 w-4" />
+            </IconBtn>
+            <span className="mx-1 h-5 w-px bg-border" />
+            <IconBtn onClick={handleFullscreen} title={fullscreen ? "Exit fullscreen" : "Fullscreen"}>
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </IconBtn>
             <span className="mx-1 h-5 w-px bg-border" />
             <IconBtn
               onClick={() => {
@@ -79,6 +193,7 @@ function DiagramPage() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
+              title="Download .mmd"
             >
               <Download className="h-4 w-4" />
             </IconBtn>
@@ -89,10 +204,19 @@ function DiagramPage() {
   );
 }
 
-function IconBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function IconBtn({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  title?: string;
+}) {
   return (
     <button
       onClick={onClick}
+      title={title}
       className="rounded-md p-1.5 text-text-secondary hover:bg-surface-hover hover:text-foreground"
     >
       {children}

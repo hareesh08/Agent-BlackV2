@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { useAppStore } from "@/lib/store";
-import { api, type AgentStats } from "@/lib/api";
+import { api, type AgentStats, type SystemStatus } from "@/lib/api";
+import { usePolling } from "@/hooks/use-polling";
+import { useLiveUptime } from "@/hooks/use-live-uptime";
 
 const AGENTS = [
   { name: "Research", port: 8001, key: "research-agent" },
@@ -12,28 +14,14 @@ const AGENTS = [
 
 export function StatusBar() {
   const [open, setOpen] = useState(true);
-  const [agentStatuses, setAgentStatuses] = useState<Record<string, string>>({});
-  const [stats, setStats] = useState<AgentStats | null>(null);
   const provider = useAppStore((s) => s.provider);
 
-  useEffect(() => {
-    const fetch = () => {
-      api.status().then((s) => {
-        setAgentStatuses(s.agents);
-      }).catch(() => {});
-      api.agentStats().then(setStats).catch(() => {});
-    };
-    fetch();
-    const interval = setInterval(fetch, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const statusPoll = usePolling<SystemStatus>(() => api.status(), { interval: 15000 });
+  const statsPoll = usePolling<AgentStats>(() => api.agentStats(), { interval: 15000 });
 
-  const formatUptime = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = Math.floor(s % 60);
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  };
+  const status = statusPoll.data;
+  const stats = statsPoll.data;
+  const uptime = useLiveUptime(stats?.uptime ?? null);
 
   return (
     <div className="rounded-xl border border-border bg-surface/60">
@@ -44,9 +32,9 @@ export function StatusBar() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {AGENTS.map((a) => (
             <span key={a.name} className="inline-flex items-center gap-1.5 text-xs">
-              <StatusDot status={agentStatuses[a.key] === "running" ? "online" : "offline"} />
+              <StatusDot status={status?.agents?.[a.key] === "running" ? "online" : "offline"} />
               <span className="text-foreground font-medium">{a.name}</span>
-              <span className="text-text-muted">:{a.port}</span>
+              <span className="hidden text-text-muted sm:inline">:{a.port}</span>
             </span>
           ))}
         </div>
@@ -65,8 +53,11 @@ export function StatusBar() {
             label="Active Agents"
             value={stats ? `${stats.active_agents} / ${stats.total_agents}` : "—"}
           />
-          <Stat label="Uptime" value={stats ? formatUptime(stats.uptime) : "—"} />
-          <Stat label="Avg Response" value={stats ? `${stats.avg_response_time.toFixed(1)}s` : "—"} />
+          <Stat label="Uptime" value={uptime} />
+          <Stat
+            label="Avg Response"
+            value={stats?.avg_response_time != null ? `${stats.avg_response_time.toFixed(1)}s` : "—"}
+          />
         </div>
       )}
     </div>

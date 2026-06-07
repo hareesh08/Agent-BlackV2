@@ -1,12 +1,45 @@
 import ReactMarkdown from "react-markdown";
-import { Check, Copy, FileText, Workflow, Braces } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, FileText, Workflow, Braces, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { Message } from "@/lib/store";
+import { api } from "@/lib/api";
 import { AgentsUsedBadge } from "./AgentsUsedBadge";
 import { ReportSections } from "./ReportSection";
 import { TaskProgress } from "./TaskProgress";
+import { MermaidDiagram } from "@/components/shared/MermaidDiagram";
 
 type View = "report" | "diagram" | "raw";
+
+function isJsonString(s: string): boolean {
+  if (!s) return false;
+  const trimmed = s.trim();
+  return (trimmed.startsWith("{") || trimmed.startsWith("[")) && (trimmed.endsWith("}") || trimmed.endsWith("]"));
+}
+
+function formatContent(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let text = raw.trim();
+  if (!text) return null;
+
+  // If the entire string is JSON, return null (sections handle it)
+  if (isJsonString(text)) return null;
+
+  // Strip trailing JSON: object/array on new line, or code fence
+  const jsonPatterns = [
+    /\n\s*\{[\s\S]*$/,   // JSON object
+    /\n\s*\[[\s\S]*$/,   // JSON array
+    /```json[\s\S]*$/,   // Code fence
+  ];
+  for (const p of jsonPatterns) {
+    const m = text.search(p);
+    if (m > 0) {
+      text = text.substring(0, m).trim();
+    }
+  }
+
+  if (!text) return null;
+  return text;
+}
 
 export function MessageBubble({ message }: { message: Message }) {
   const [view, setView] = useState<View>("report");
@@ -21,12 +54,35 @@ export function MessageBubble({ message }: { message: Message }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end fade-in-up">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-primary px-4 py-2.5 text-primary-foreground text-[15px] leading-relaxed">
+        <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-primary-foreground text-sm leading-relaxed sm:max-w-[80%] sm:px-4 sm:py-2.5 sm:text-[15px]">
           {message.content}
-        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+function IconBtn({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="rounded-md p-1 text-text-secondary hover:bg-surface-hover hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+  const displayContent = formatContent(message.content);
+  const hasSections = message.sections && Object.values(message.sections).some(Boolean);
 
   return (
     <div className="fade-in-up">
@@ -51,13 +107,13 @@ export function MessageBubble({ message }: { message: Message }) {
             </>
           ) : (
             <>
-              {message.content && (
-                <div className="md-body mb-3 rounded-2xl rounded-tl-md bg-surface px-4 py-3">
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+              {displayContent && (
+                <div className="md-body mb-3 rounded-2xl rounded-tl-md bg-surface px-3 py-2.5 sm:px-4 sm:py-3">
+                  <ReactMarkdown>{displayContent}</ReactMarkdown>
                 </div>
               )}
 
-              <div className="mb-3 inline-flex rounded-lg border border-border bg-background p-0.5 text-xs">
+              <div className="mb-3 inline-flex flex-wrap rounded-lg border border-border bg-background p-0.5 text-xs">
                 <ToolbarBtn active={view === "report"} onClick={() => setView("report")} icon={<FileText className="h-3.5 w-3.5" />}>
                   Report
                 </ToolbarBtn>
@@ -79,7 +135,7 @@ export function MessageBubble({ message }: { message: Message }) {
               {view === "report" && message.sections && (
                 <ReportSections sections={message.sections} />
               )}
-              {view === "diagram" && <DiagramPlaceholder />}
+              {view === "diagram" && <DiagramView message={message} />}
               {view === "raw" && (
                 <pre className="rounded-lg border border-border bg-surface p-4 text-xs font-mono overflow-x-auto max-h-96">
                   {JSON.stringify(message.raw ?? message, null, 2)}
@@ -133,14 +189,144 @@ function LoadingDots() {
   );
 }
 
-function DiagramPlaceholder() {
+function DiagramView({ message }: { message: Message }) {
+  const [diagram, setDiagram] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const hasReport = message.sections && Object.values(message.sections).some(Boolean);
+        if (hasReport) {
+          const reportData: Record<string, any> = {};
+          if (message.sections) {
+            for (const [k, v] of Object.entries(message.sections)) {
+              if (v) {
+                try { reportData[k] = JSON.parse(v); } catch { reportData[k] = v; }
+              }
+            }
+          }
+          // Find the user query that preceded this message
+          const userMsg = (message.raw as any)?.query || "";
+          const res = await api.getDiagramFromReport({
+            query: userMsg,
+            report: reportData,
+            agents_used: message.agentsUsed || [],
+            events: message.taskProgress || [],
+          });
+          if (!cancelled) setDiagram(res.diagram);
+        } else {
+          const res = await api.getDiagramAgentFlow();
+          if (!cancelled) setDiagram(res.diagram);
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || "Failed to generate diagram");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [message]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && fullscreen) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  const handleFullscreen = useCallback(() => {
+    if (!fullscreen && containerRef.current) {
+      containerRef.current.requestFullscreen?.();
+    } else if (fullscreen) {
+      document.exitFullscreen?.();
+    }
+    setFullscreen((f) => !f);
+  }, [fullscreen]);
+
+  const zoomIn = useCallback(() => setZoom((z) => Math.min(5, z + 0.2)), []);
+  const zoomOut = useCallback(() => setZoom((z) => Math.max(0.2, z - 0.2)), []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/50 p-6 text-sm text-text-muted">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Generating project diagram...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-center">
+        <p className="text-sm text-red-400">{error}</p>
+      </div>
+    );
+  }
+
+  if (!diagram) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-surface/50 p-8 text-center">
+        <Workflow className="mx-auto mb-2 h-6 w-6 text-text-muted" />
+        <p className="text-sm text-text-secondary">No diagram available</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-lg border border-dashed border-border bg-surface/50 p-8 text-center">
-      <Workflow className="mx-auto mb-2 h-6 w-6 text-text-muted" />
-      <p className="text-sm text-text-secondary">Mermaid diagram renders here</p>
-      <p className="mt-1 text-xs text-text-muted">
-        Connect <code className="font-mono">/api/diagram/agent-flow</code> to populate
-      </p>
+    <div
+      ref={containerRef}
+      className={`relative rounded-lg border border-border bg-surface/50 ${
+        fullscreen ? "fixed inset-0 z-50 rounded-none border-0 bg-background p-4" : "p-4"
+      }`}
+    >
+      <div className="overflow-x-auto overflow-y-auto">
+        <MermaidDiagram code={diagram} zoom={zoom} onZoomChange={setZoom} />
+      </div>
+      <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-sm">
+        <IconBtn onClick={zoomOut} title="Zoom out">
+          <ZoomOut className="h-3.5 w-3.5" />
+        </IconBtn>
+        <span className="px-1 text-[10px] font-mono text-text-secondary min-w-[3ch] text-center">
+          {Math.round(zoom * 100)}%
+        </span>
+        <IconBtn onClick={zoomIn} title="Zoom in">
+          <ZoomIn className="h-3.5 w-3.5" />
+        </IconBtn>
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        <IconBtn onClick={handleFullscreen} title={fullscreen ? "Exit fullscreen" : "Fullscreen"}>
+          {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </IconBtn>
+      </div>
     </div>
+  );
+}
+
+function IconBtn({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="rounded-md p-1 text-text-secondary hover:bg-surface-hover hover:text-foreground"
+    >
+      {children}
+    </button>
   );
 }

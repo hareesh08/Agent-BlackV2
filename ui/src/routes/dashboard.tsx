@@ -1,43 +1,32 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { StatusBar } from "@/components/chat/StatusBar";
 import { ArrowRight, Boxes, Zap, Clock, MessageSquare } from "lucide-react";
-import { useEffect, useState } from "react";
 import { api, type AgentStats, type HistoryItem } from "@/lib/api";
+import { usePolling } from "@/hooks/use-polling";
+import { useLiveUptime } from "@/hooks/use-live-uptime";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [      { title: "Dashboard · Agent Black" }] }),
+  head: () => ({ meta: [{ title: "Dashboard · Agent Black" }] }),
   component: Dashboard,
 });
 
 function Dashboard() {
-  const [stats, setStats] = useState<AgentStats | null>(null);
-  const [recent, setRecent] = useState<HistoryItem[]>([]);
+  const statsPoll = usePolling<AgentStats>(() => api.agentStats(), { interval: 30000 });
+  const historyPoll = usePolling<HistoryItem[]>(() => api.queryHistory(), { interval: 30000 });
 
-  useEffect(() => {
-    api.agentStats().then(setStats).catch(() => {});
-    api.queryHistory().then(setRecent).catch(() => {});
-    const interval = setInterval(() => {
-      api.agentStats().then(setStats).catch(() => {});
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatUptime = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = Math.floor(s % 60);
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  };
+  const stats = statsPoll.data;
+  const recent = historyPoll.data ?? [];
+  const uptime = useLiveUptime(stats?.uptime ?? null);
 
   const statCards = [
     { label: "Total Queries", value: String(stats?.total_queries ?? "—"), icon: MessageSquare },
     { label: "Active Agents", value: stats ? `${stats.active_agents} / ${stats.total_agents}` : "—", icon: Boxes },
-    { label: "Uptime", value: stats ? formatUptime(stats.uptime) : "—", icon: Clock },
-    { label: "Avg Response", value: stats ? `${stats.avg_response_time.toFixed(1)}s` : "—", icon: Zap },
+    { label: "Uptime", value: uptime, icon: Clock },
+    { label: "Avg Response", value: stats?.avg_response_time != null ? `${stats.avg_response_time.toFixed(1)}s` : "—", icon: Zap },
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-4 py-6 flex flex-col gap-6">
+    <div className="mx-auto w-full max-w-[1100px] px-3 py-4 sm:px-4 sm:py-6 flex flex-col gap-6">
       <StatusBar />
 
       <div className="flex items-center justify-between">
@@ -52,12 +41,12 @@ function Dashboard() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {statCards.map(({ label, value, icon: Icon }) => (
-          <div key={label} className="rounded-xl border border-border bg-surface p-4">
+          <div key={label} className="rounded-xl border border-border bg-surface p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-wider text-text-muted">{label}</span>
               <Icon className="h-4 w-4 text-text-muted" />
             </div>
-            <div className="mt-2 text-2xl font-semibold tracking-tight">{value}</div>
+            <div className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">{value}</div>
           </div>
         ))}
       </div>
@@ -73,9 +62,9 @@ function Dashboard() {
         ) : (
           <ul className="divide-y divide-border-light">
             {recent.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-4 px-4 py-3">
+              <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4">
                 <div className="min-w-0 flex-1 truncate text-sm">{r.query}</div>
-                <span className="hidden sm:inline rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-text-secondary">
+                <span className="hidden rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-text-secondary sm:inline">
                   {r.agents_used?.join(" + ") || "—"}
                 </span>
                 <span className="text-xs text-text-muted whitespace-nowrap">
