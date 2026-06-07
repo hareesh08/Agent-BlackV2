@@ -11,6 +11,8 @@ services:
   research-agent:
     image: ghcr.io/${GITHUB_OWNER}/agent-black/research-agent:latest
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
@@ -24,6 +26,8 @@ services:
   solution-agent:
     image: ghcr.io/${GITHUB_OWNER}/agent-black/solution-agent:latest
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
@@ -37,6 +41,8 @@ services:
   experiment-agent:
     image: ghcr.io/${GITHUB_OWNER}/agent-black/experiment-agent:latest
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
@@ -52,6 +58,8 @@ services:
     env_file: .env
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     depends_on:
       research-agent:
@@ -86,3 +94,6 @@ services:
 networks:
   agent-black-net:
     driver: bridge
+
+volumes:
+  agent-black-data:

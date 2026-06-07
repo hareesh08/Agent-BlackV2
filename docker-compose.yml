@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: agents/research-agent/Dockerfile
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     networks:
       - agent-black-net
@@ -13,6 +15,8 @@ services:
       context: .
       dockerfile: agents/solution-agent/Dockerfile
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     networks:
       - agent-black-net
@@ -22,6 +26,8 @@ services:
       context: .
       dockerfile: agents/experiment-agent/Dockerfile
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     restart: unless-stopped
     networks:
       - agent-black-net
@@ -33,6 +39,8 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     env_file: .env
+    volumes:
+      - agent-black-data:/app/data
     depends_on:
       - research-agent
       - solution-agent
@@ -59,3 +67,6 @@ services:
 networks:
   agent-black-net:
     driver: bridge
+
+volumes:
+  agent-black-data:
