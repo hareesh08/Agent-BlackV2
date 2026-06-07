@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from fastapi import APIRouter
 from app.models import SettingsUpdate, SettingsResponse, LLMSettings
-from shared.config import get_setting, set_setting, get_all_settings
+from shared.config import get_setting, set_setting, get_all_settings, AGENT_URLS
 
 router = APIRouter(tags=["settings"])
 
@@ -33,11 +33,7 @@ def get_settings():
                 base_url=get_setting("ANTHROPIC_BASE_URL") or None,
             ),
         },
-        agent_urls={
-            "research": get_setting("RESEARCH_AGENT_URL", os.getenv("RESEARCH_AGENT_URL", "http://localhost:8001")),
-            "solution": get_setting("SOLUTION_AGENT_URL", os.getenv("SOLUTION_AGENT_URL", "http://localhost:8002")),
-            "experiment": get_setting("EXPERIMENT_AGENT_URL", os.getenv("EXPERIMENT_AGENT_URL", "http://localhost:8003")),
-        },
+        agent_urls=AGENT_URLS,
     )
 
 

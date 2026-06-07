@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import httpx
 from shared.llm import async_call_llm, extract_json
-from shared.config import get_setting
+from shared.config import AGENT_URLS
 
 DECOMPOSE_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "orchestrator.txt")
 SELECTION_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "selection.txt")
@@ -144,9 +144,9 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         progress_callback("decomposing_task", "complete", f"Decomposition failed, using original query: {e}")
 
     agent_endpoints = {
-        "research": ("research_task", f"{get_setting('RESEARCH_AGENT_URL', 'http://localhost:8001')}/research"),
-        "solution": ("solution_task", f"{get_setting('SOLUTION_AGENT_URL', 'http://localhost:8002')}/solution"),
-        "experiment": ("experiment_task", f"{get_setting('EXPERIMENT_AGENT_URL', 'http://localhost:8003')}/experiment"),
+        "research": ("research_task", f"{AGENT_URLS['research']}/research"),
+        "solution": ("solution_task", f"{AGENT_URLS['solution']}/solution"),
+        "experiment": ("experiment_task", f"{AGENT_URLS['experiment']}/experiment"),
     }
 
     # ── Step 3: Dispatch to sub-agents concurrently ────────────────────────────
