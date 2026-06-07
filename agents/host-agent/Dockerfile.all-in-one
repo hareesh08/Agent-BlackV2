@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy all source code
+COPY shared/ ./shared/
+COPY app/ ./app/
+COPY agents/ ./agents/
+
+# Create data and logs dirs
+RUN mkdir -p data logs
+
+# Install Node.js for frontend build
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy and build frontend
+COPY ui/ ./ui/
+WORKDIR /app/ui
+RUN npm install --legacy-peer-deps && npm run build
+
+WORKDIR /app
+EXPOSE 8000
+
+# Start control panel (which manages agents in-process)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]

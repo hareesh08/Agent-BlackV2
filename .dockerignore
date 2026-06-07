@@ -1,0 +1,14 @@
+.git
+.idea
+__pycache__
+*.pyc
+*.pyo
+node_modules
+dist
+.tanstack
+data
+logs
+*.db
+*.sqlite
+.venv
+venv

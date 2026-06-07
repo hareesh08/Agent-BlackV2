@@ -110,9 +110,7 @@ def upload_project(client):
 
 def generate_compose_file():
     """Generate docker-compose.yml for production deployment."""
-    return f'''version: "3.9"
-
-services:
+    return f'''services:
   research-agent:
     build:
       context: .
@@ -613,6 +611,69 @@ certbot certificates 2>/dev/null || true
     log("FULL UPDATE COMPLETE", out, err, code)
 
 
+def fresh_rebuild(client):
+    """Nuke everything (containers, images, volumes) and do a clean build from scratch."""
+    print(">>> Uploading latest code...")
+    upload_project(client)
+
+    sftp = client.open_sftp()
+    with sftp.open(f"{APP_DIR}/docker-compose.yml", "w") as f:
+        f.write(generate_compose_file())
+    sftp.close()
+
+    sftp = client.open_sftp()
+    with sftp.open(f"{APP_DIR}/.env", "w") as f:
+        f.write(generate_env_file())
+    sftp.close()
+
+    run(client, f"mkdir -p {APP_DIR}/devops")
+    sftp = client.open_sftp()
+    with sftp.open(f"{APP_DIR}/devops/Dockerfile.frontend", "w") as f:
+        f.write(generate_frontend_dockerfile())
+    sftp.close()
+
+    code, out, err = run(client, f'''
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+cd {APP_DIR}
+
+echo ">>> Stopping and removing all containers..."
+docker compose down --remove-orphans --volumes --timeout 10 || true
+
+echo ">>> Removing all project images..."
+docker images --format '{{{{.Repository}}}}:{{{{.Tag}}}}' | grep '{PROJECT_NAME}' | xargs -r docker rmi -f || true
+
+echo ">>> Pruning all unused Docker resources..."
+docker system prune -af --volumes || true
+
+echo ">>> Cleaning pip cache..."
+rm -rf /root/.cache/pip || true
+
+echo ">>> Updating Docker..."
+apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin || true
+
+echo ">>> Building fresh images (no cache)..."
+docker compose build --no-cache --pull
+
+echo ">>> Starting services..."
+docker compose up -d
+
+echo ">>> Waiting for services..."
+sleep 15
+
+echo ">>> Final status:"
+docker compose ps
+
+echo ">>> Health check:"
+curl -fsS http://127.0.0.1:{CONTROL_PANEL_PORT}/api/status || echo "Control panel not responding"
+
+echo ">>> SSL certificates:"
+certbot certificates 2>/dev/null || true
+''', timeout=3600)
+    log("FRESH REBUILD COMPLETE", out, err, code)
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -633,9 +694,10 @@ def main():
     print("  5) logs         - View recent container logs")
     print("  6) ssl-renew    - Renew SSL certificate & reload Nginx")
     print("  7) full-update  - System packages + rebuild + SSL renewal")
+    print("  8) fresh-rebuild - Nuke everything & rebuild from scratch")
     print()
 
-    choice = input("  Enter choice (1-7): ").strip()
+    choice = input("  Enter choice (1-8): ").strip()
 
     actions = {
         "1": ("setup", setup),
@@ -645,6 +707,7 @@ def main():
         "5": ("logs", view_logs),
         "6": ("ssl-renew", renew_ssl),
         "7": ("full-update", full_update),
+        "8": ("fresh-rebuild", fresh_rebuild),
     }
 
     if choice not in actions:
