@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def hyperparameter_advice(query: str = "", model_type: str = "", **kwargs) -> dict:
@@ -15,4 +15,4 @@ def hyperparameter_advice(query: str = "", model_type: str = "", **kwargs) -> di
 - epochs (string with training duration guidance)
 Model type: {model_name}"""
     raw = call_llm(system_prompt="You are a hyperparameter optimization expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

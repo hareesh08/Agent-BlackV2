@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def prompt_optimizer(query: str = "", task: str = "", prompt_text: str = "", **kwargs) -> dict:
@@ -14,4 +14,4 @@ def prompt_optimizer(query: str = "", task: str = "", prompt_text: str = "", **k
 Task: {task_name}
 Current Prompt: {current_prompt}"""
     raw = call_llm(system_prompt="You are a prompt engineering and optimization expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

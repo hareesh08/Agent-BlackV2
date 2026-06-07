@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def synthetic_data_strategy(query: str = "", domain: str = "", **kwargs) -> dict:
@@ -12,4 +12,4 @@ def synthetic_data_strategy(query: str = "", domain: str = "", **kwargs) -> dict
 - recommendation (string with the best starting strategy)
 Domain: {domain_name}"""
     raw = call_llm(system_prompt="You are a computer vision data augmentation and synthetic data expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

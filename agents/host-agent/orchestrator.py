@@ -17,9 +17,12 @@ def load_prompt(path: str) -> str:
 
 def _load_prompt_safe(path: str) -> str:
     try:
-        return load_prompt(path)
-    except FileNotFoundError:
-        return ""
+        content = load_prompt(path)
+        if not content.strip():
+            raise ValueError(f"Prompt file is empty: {path}")
+        return content
+    except (FileNotFoundError, ValueError) as e:
+        raise RuntimeError(f"Failed to load prompt from {path}: {e}")
 
 
 async def orchestrate(query: str, progress_callback=None) -> dict:

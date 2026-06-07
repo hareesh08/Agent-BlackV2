@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def time_series_strategy(query: str = "", problem: str = "", **kwargs) -> dict:
@@ -14,4 +14,4 @@ def time_series_strategy(query: str = "", problem: str = "", **kwargs) -> dict:
 - evaluation (list of recommended evaluation metrics)
 Problem: {problem_name}"""
     raw = call_llm(system_prompt="You are a time series analysis and forecasting expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

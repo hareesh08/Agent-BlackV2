@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, Request
 from shared.models import AgentRequest
 from shared.a2a import handle_a2a_request, create_agent_card
+from shared.config import HOST_AGENT_URL
 from orchestrator import orchestrate
 
 app = FastAPI(title="Host Agent / Orchestrator")
@@ -17,7 +18,7 @@ TASKS = [
 
 @app.get("/.well-known/agent-card")
 def agent_card():
-    return create_agent_card(AGENT_NAME, "Orchestrates CV, NLP, and ML agents for research queries", "http://localhost:8000", TASKS).model_dump()
+    return create_agent_card(AGENT_NAME, "Orchestrates CV, NLP, and ML agents for research queries", HOST_AGENT_URL, TASKS).model_dump()
 
 @app.post("/research")
 async def research(req: AgentRequest):
@@ -27,7 +28,7 @@ async def research(req: AgentRequest):
 @app.post("/a2a")
 async def a2a_endpoint(req: Request):
     body = await req.json()
-    return await handle_a2a_request(body, AGENT_NAME, TASKS, "http://localhost:8000", lambda q: orchestrate(q))
+    return await handle_a2a_request(body, AGENT_NAME, TASKS, HOST_AGENT_URL, lambda q: orchestrate(q))
 
 @app.get("/health")
 def health():

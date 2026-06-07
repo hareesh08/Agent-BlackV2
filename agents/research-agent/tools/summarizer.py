@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 from shared.crossref import search_works, works_to_papers
 import json, arxiv
 
@@ -31,4 +31,4 @@ def summarize_paper(query: str = "", text: str = "", **kwargs) -> dict:
 - limitations (list of 2-4 limitations)
 Content: {content[:3000]}"""
     raw = call_llm(system_prompt="You are a research paper summarization expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

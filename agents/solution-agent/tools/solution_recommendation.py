@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def solution_recommendation(query: str = "", problem: str = "", **kwargs) -> dict:
@@ -13,4 +13,4 @@ def solution_recommendation(query: str = "", problem: str = "", **kwargs) -> dic
 - expected_outcomes (string describing expected results)
 Problem: {problem_name}"""
     raw = call_llm(system_prompt="You are an NLP solution architect.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

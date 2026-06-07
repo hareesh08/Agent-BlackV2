@@ -22,6 +22,9 @@ async def run_agent(query: str) -> dict:
     decision = extract_json(decision_raw)
 
     selected_tools = decision.get("selected_tools", [])
+    selected_tools = [t for t in selected_tools if t in TOOLS]
+    if not selected_tools:
+        selected_tools = ["search_papers", "analyze_gaps", "solution_recommendation"]
 
     async def _run_tool(tool_name: str):
         try:

@@ -1,6 +1,8 @@
 import re
 import json
 import asyncio
+import time
+import logging
 
 from shared.config import (
     LLM_PROVIDER,
@@ -8,6 +10,11 @@ from shared.config import (
     OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL,
     ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, ANTHROPIC_MODEL,
 )
+
+logger = logging.getLogger(__name__)
+
+LLM_MAX_RETRIES = 3
+LLM_RETRY_DELAY = 2
 
 
 def extract_json(raw: str) -> dict:
@@ -86,7 +93,7 @@ def _call_anthropic(system_prompt: str, user_prompt: str) -> str:
     return response.content[0].text
 
 
-def call_llm(system_prompt: str, user_prompt: str) -> str:
+def _call_llm_once(system_prompt: str, user_prompt: str) -> str:
     if LLM_PROVIDER == "gemini":
         return _call_gemini(system_prompt, user_prompt)
     if LLM_PROVIDER == "openai":
@@ -94,6 +101,19 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
     if LLM_PROVIDER == "anthropic":
         return _call_anthropic(system_prompt, user_prompt)
     raise ValueError(f"Unsupported LLM_PROVIDER: {LLM_PROVIDER}. Choose from: gemini, openai, anthropic")
+
+
+def call_llm(system_prompt: str, user_prompt: str) -> str:
+    last_error = None
+    for attempt in range(LLM_MAX_RETRIES):
+        try:
+            return _call_llm_once(system_prompt, user_prompt)
+        except Exception as e:
+            last_error = e
+            logger.warning(f"LLM call attempt {attempt + 1}/{LLM_MAX_RETRIES} failed: {e}")
+            if attempt < LLM_MAX_RETRIES - 1:
+                time.sleep(LLM_RETRY_DELAY * (attempt + 1))
+    raise RuntimeError(f"LLM call failed after {LLM_MAX_RETRIES} attempts: {last_error}")
 
 
 async def async_call_llm(system_prompt: str, user_prompt: str) -> str:

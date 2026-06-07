@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def prototype_guidance(query: str = "", problem: str = "", **kwargs) -> dict:
@@ -13,4 +13,4 @@ def prototype_guidance(query: str = "", problem: str = "", **kwargs) -> dict:
 - next_steps (list of 3-5 improvements after MVP)
 Use case: {problem_name}"""
     raw = call_llm(system_prompt="You are an NLP prototype development expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

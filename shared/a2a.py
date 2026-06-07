@@ -56,19 +56,25 @@ async def handle_a2a_request(body: dict, agent_name: str, tasks: list[str], agen
     if method == "a2a/sendTask":
         task_params = body.get("params", {})
         query = task_params.get("query", task_params.get("message", ""))
-        # Support both sync and async run_fn
-        if inspect.iscoroutinefunction(run_fn):
-            result = await run_fn(query)
-        else:
-            result = run_fn(query)
-        return {
-            "jsonrpc": "2.0",
-            "result": {
+        try:
+            if inspect.iscoroutinefunction(run_fn):
+                result = await run_fn(query)
+            else:
+                result = run_fn(query)
+            return {
+                "jsonrpc": "2.0",
+                "result": {
+                    "id": req_id,
+                    "status": {"state": "completed"},
+                    "artifacts": [{"parts": [{"text": str(result)}]}],
+                },
                 "id": req_id,
-                "status": {"state": "completed"},
-                "artifacts": [{"parts": [{"text": str(result)}]}],
-            },
-            "id": req_id,
-        }
+            }
+        except Exception as e:
+            return {
+                "jsonrpc": "2.0",
+                "error": {"code": -32000, "message": f"Task execution failed: {str(e)}"},
+                "id": req_id,
+            }
 
     return {"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Method not found: {method}"}, "id": req_id}

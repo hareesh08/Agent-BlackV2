@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def model_explainability_advisor(query: str = "", model_type: str = "", task: str = "", **kwargs) -> dict:
@@ -12,4 +12,4 @@ def model_explainability_advisor(query: str = "", model_type: str = "", task: st
 - recommendation (string with the best approach to start with)
 Model type: {mtype}"""
     raw = call_llm(system_prompt="You are a model explainability and XAI expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

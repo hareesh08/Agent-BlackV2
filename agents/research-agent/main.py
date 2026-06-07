@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from shared.models import AgentRequest, AgentResponse
 from shared.mcp import handle_mcp_request, MCP_TOOLS
 from shared.a2a import handle_a2a_request, create_agent_card
+from shared.config import RESEARCH_AGENT_URL
 from agent import run_agent
 
 app = FastAPI(title="Computer Vision Research Agent")
@@ -32,7 +33,7 @@ def capabilities():
 
 @app.get("/.well-known/agent-card")
 def agent_card():
-    return create_agent_card(AGENT_NAME, CAPABILITIES["description"], "http://localhost:8001", TASKS).model_dump()
+    return create_agent_card(AGENT_NAME, CAPABILITIES["description"], RESEARCH_AGENT_URL, TASKS).model_dump()
 
 @app.post("/research", response_model=AgentResponse)
 async def research(req: AgentRequest):
@@ -47,7 +48,7 @@ async def mcp_endpoint(req: Request):
 @app.post("/a2a")
 async def a2a_endpoint(req: Request):
     body = await req.json()
-    return await handle_a2a_request(body, AGENT_NAME, TASKS, "http://localhost:8001", run_agent)
+    return await handle_a2a_request(body, AGENT_NAME, TASKS, RESEARCH_AGENT_URL, run_agent)
 
 @app.get("/tools")
 def list_tools():

@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def rag_design(query: str = "", problem: str = "", **kwargs) -> dict:
@@ -15,4 +15,4 @@ def rag_design(query: str = "", problem: str = "", **kwargs) -> dict:
 - recommended_architecture (string with architecture overview)
 Problem: {problem_name}"""
     raw = call_llm(system_prompt="You are a RAG architecture design expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from shared.llm import call_llm
+from shared.llm import call_llm, extract_json
 import json
 
 def experiment_planner(query: str = "", problem: str = "", **kwargs) -> dict:
@@ -14,4 +14,4 @@ def experiment_planner(query: str = "", problem: str = "", **kwargs) -> dict:
 - compute_estimate (object with GPU needs and time estimate)
 Problem: {problem_name}"""
     raw = call_llm(system_prompt="You are a computer vision experiment design expert.", user_prompt=prompt)
-    return json.loads(raw)
+    return extract_json(raw)

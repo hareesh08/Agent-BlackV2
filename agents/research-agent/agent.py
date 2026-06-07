@@ -25,6 +25,9 @@ async def run_agent(query: str) -> dict:
 
     # Step 2: Execute selected tools concurrently in threads
     selected_tools = decision.get("selected_tools", [])
+    selected_tools = [t for t in selected_tools if t in TOOLS]
+    if not selected_tools:
+        selected_tools = ["search_papers", "analyze_gaps", "solution_recommendation"]
 
     async def _run_tool(tool_name: str):
         try:

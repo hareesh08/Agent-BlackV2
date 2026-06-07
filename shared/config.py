@@ -95,3 +95,8 @@ AGENT_URLS = {
     "solution": get_setting("SOLUTION_AGENT_URL", "http://localhost:8002"),
     "experiment": get_setting("EXPERIMENT_AGENT_URL", "http://localhost:8003"),
 }
+
+HOST_AGENT_URL = get_setting("HOST_AGENT_URL", "http://localhost:8000")
+RESEARCH_AGENT_URL = get_setting("RESEARCH_AGENT_URL", "http://localhost:8001")
+SOLUTION_AGENT_URL = get_setting("SOLUTION_AGENT_URL", "http://localhost:8002")
+EXPERIMENT_AGENT_URL = get_setting("EXPERIMENT_AGENT_URL", "http://localhost:8003")
