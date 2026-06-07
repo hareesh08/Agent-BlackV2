@@ -1,6 +1,6 @@
 # Agent Black
 
-A collaborative multi-agent research assistant ecosystem built with **FastAPI**, **LLMs** (Gemini / OpenAI / Anthropic), **MCP** (Model Context Protocol), and **A2A** (Agent-to-Agent) communication.
+A collaborative multi-agent research assistant ecosystem built with **FastAPI**, **React** (TanStack Start), **LLMs** (Gemini / OpenAI / Anthropic), **MCP** (Model Context Protocol), and **A2A** (Agent-to-Agent) communication.
 
 ---
 
@@ -9,22 +9,23 @@ A collaborative multi-agent research assistant ecosystem built with **FastAPI**,
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Agents](#agents)
-  - [Host Agent (Orchestrator)](#host-agent-orchestrator)
+  - [Control Panel (Orchestrator)](#control-panel-orchestrator)
   - [CV Research Agent](#cv-research-agent)
   - [NLP Solution Agent](#nlp-solution-agent)
   - [ML Experiment Agent](#ml-experiment-agent)
 - [MCP Tools](#mcp-tools)
 - [A2A Protocol](#a2a-protocol)
 - [Orchestrator Pipeline](#orchestrator-pipeline)
+- [Frontend](#frontend)
 - [Quick Start](#quick-start)
   - [Prerequisites](#prerequisites)
   - [Local Setup](#local-setup)
   - [Docker Setup](#docker-setup)
 - [API Reference](#api-reference)
-  - [Host Agent Endpoints](#host-agent-endpoints-port-8000)
-  - [CV Research Agent Endpoints](#cv-research-agent-endpoints-port-8001)
-  - [NLP Solution Agent Endpoints](#nlp-solution-agent-endpoints-port-8002)
-  - [ML Experiment Agent Endpoints](#ml-experiment-agent-endpoints-port-8003)
+  - [Control Panel Endpoints (port 8000)](#control-panel-endpoints-port-8000)
+  - [CV Research Agent Endpoints (port 8001)](#cv-research-agent-endpoints-port-8001)
+  - [NLP Solution Agent Endpoints (port 8002)](#nlp-solution-agent-endpoints-port-8002)
+  - [ML Experiment Agent Endpoints (port 8003)](#ml-experiment-agent-endpoints-port-8003)
 - [Demo Scenarios](#demo-scenarios)
 - [Environment Variables](#environment-variables)
 - [Project Structure](#project-structure)
@@ -34,15 +35,18 @@ A collaborative multi-agent research assistant ecosystem built with **FastAPI**,
 
 ## Overview
 
-Agent Black is a multi-agent system where a **Host Agent** orchestrates three **specialized research agents** to solve AI/ML/CV/NLP research queries. Each agent is an independent FastAPI service with its own MCP tool server and A2A endpoint.
+Agent Black is a multi-agent system where a **Control Panel** orchestrates three **specialized research agents** to solve AI/ML/CV/NLP research queries. Each agent is an independent FastAPI service with its own MCP tool server and A2A endpoint.
 
 **Key features:**
 - Research-relevance gating — rejects non-research queries with a helpful message
 - LLM-driven task decomposition and agent selection
 - Concurrent agent dispatch via `asyncio.gather`
-- MCP tool layer (JSON-RPC 2.0) on every agent
+- MCP tool layer (JSON-RPC 2.0) on every agent (39 tools total, 13 per agent)
 - A2A protocol for cross-agent communication
 - Multi-provider LLM support (Gemini, OpenAI, Anthropic) with automatic retry
+- Real-time task progress streaming via SSE
+- SQLite-backed configuration, query history, and agent discovery
+- Responsive React frontend with chat, dashboard, and diagram views
 - Docker containerization
 
 ---
@@ -53,15 +57,21 @@ Agent Black is a multi-agent system where a **Host Agent** orchestrates three **
 User Query
     │
     ▼
-┌─────────────────────────────────────────┐
-│  Host Agent  (:8000)  — Orchestrator    │
-│                                         │
-│  Step 0: Research-relevance gate        │
-│  Step 1: Agent selection (LLM)          │
-│  Step 2: Task decomposition (LLM)       │
-│  Step 3: Concurrent dispatch             │
-│  Step 4: Result aggregation (LLM)       │
-└────────┬──────────┬──────────┬──────────┘
+┌─────────────────────────────────────────────────┐
+│  Control Panel  (:8000)  — API + Orchestrator   │
+│                                                 │
+│  POST /api/query  → background orchestration    │
+│  GET  /api/query/stream/{id}  → SSE progress   │
+│                                                 │
+│  Step 0: Research-relevance gate                │
+│  Step 1: Agent selection (LLM)                  │
+│  Step 2: Task decomposition (LLM)               │
+│  Step 3: Concurrent dispatch                     │
+│  Step 4: Result aggregation (LLM)               │
+│                                                 │
+│  Also serves: Settings, Discovery, Diagrams,    │
+│  Agent management (start/stop/logs), Setup API  │
+└────────┬──────────┬──────────┬──────────────────┘
          │          │          │
          ▼          ▼          ▼
 ┌────────────┐ ┌────────────┐ ┌────────────────┐
@@ -75,28 +85,42 @@ User Query
 │ [13 MCP]   │ │ [13 MCP]   │ │ [13 MCP]       │
 │ [A2A]      │ │ [A2A]      │ │ [A2A]          │
 └────────────┘ └────────────┘ └────────────────┘
+         │          │          │
+         └──────────┴──────────┘
+                    │
+                    ▼
+         ┌──────────────────┐
+         │   React Frontend │
+         │   (ui/, port     │
+         │   configured     │
+         │   via VITE_API)  │
+         └──────────────────┘
 ```
 
 ---
 
 ## Agents
 
-### Host Agent (Orchestrator)
+### Control Panel (Orchestrator)
 
 | Property | Value |
 |----------|-------|
 | Port | `8000` |
-| Role | Orchestrator — decomposes queries, selects agents, aggregates results |
+| Role | API server + orchestrator — manages agents, processes queries, streams results |
 | LLM | Yes — for classification, decomposition, and synthesis |
 | MCP Tools | None (pure orchestrator) |
 | A2A | Yes |
+| Database | SQLite (`data/agent_black.db`) |
 
 **Responsibilities:**
-1. **Research-relevance gate** — keyword check + LLM classifier rejects non-research queries
-2. **Agent selection** — LLM decides which of the 3 agents are relevant
-3. **Task decomposition** — LLM breaks the query into domain-specific sub-tasks
-4. **Concurrent dispatch** — sends sub-tasks to selected agents in parallel
-5. **Result aggregation** — LLM synthesizes all agent outputs into a unified report
+1. **Agent management** — start/stop/restart agents via subprocess, health-check polling
+2. **Research-relevance gate** — keyword check + LLM classifier rejects non-research queries
+3. **Agent selection** — LLM decides which of the 3 agents are relevant
+4. **Task decomposition** — LLM breaks the query into domain-specific sub-tasks
+5. **Concurrent dispatch** — sends sub-tasks to selected agents in parallel
+6. **Result aggregation** — LLM synthesizes all agent outputs into a unified report
+7. **Streaming progress** — SSE endpoint streams task events to the frontend
+8. **Settings & discovery** — manages LLM provider config, discovers agent capabilities
 
 ### CV Research Agent
 
@@ -240,7 +264,7 @@ Every agent supports Agent-to-Agent communication via JSON-RPC 2.0.
 
 ## Orchestrator Pipeline
 
-The Host Agent runs a 5-step pipeline for every query:
+The Control Panel runs a 5-step pipeline for every query:
 
 ```
 Step 0: Research-relevance gate
@@ -264,11 +288,49 @@ Step 4: Result aggregation (LLM)
 
 ---
 
+## Frontend
+
+The UI is a **React 19** single-page app built with:
+
+| Layer | Technology |
+|-------|------------|
+| Framework | TanStack Start (SSR) + TanStack Router |
+| Styling | Tailwind CSS v4 + shadcn/ui (New York style) |
+| State | Zustand (persisted to localStorage) |
+| Data Fetching | TanStack React Query + SSE streaming |
+| Diagrams | Mermaid.js |
+| Markdown | react-markdown |
+| Icons | Lucide React |
+
+### Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Chat interface — submit queries, view streamed results |
+| `/dashboard` | System stats, agent status, recent activity |
+| `/agents` | Agent details, tools, logs, start/stop controls |
+| `/history` | Searchable query history |
+| `/settings` | LLM provider configuration, agent URLs, theme |
+| `/diagram` | Agent flow and tech stack diagrams |
+
+### Running the Frontend
+
+```bash
+cd ui
+bun install
+bun run dev
+```
+
+The frontend connects to the Control Panel API at `http://localhost:8000/api` (configurable via `VITE_API_URL` in `.env`).
+
+---
+
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.11+
+- Node.js 18+ and [Bun](https://bun.sh) (for the frontend)
 - Docker & Docker Compose (for containerized setup)
 - An LLM API key (Gemini, OpenAI, or Anthropic)
 
@@ -279,47 +341,70 @@ Step 4: Result aggregation (LLM)
 git clone https://github.com/hareesh08/Agent-BlackV2.git
 cd Agent-BlackV2
 
-# 2. Install dependencies
+# 2. Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Configure LLM provider (edit data/agent_black.db or use the setup API)
+# 3. Install frontend dependencies
+cd ui && bun install && cd ..
+
+# 4. Configure LLM provider (edit data/agent_black.db or use the setup API)
 #    Or set via environment before starting:
 export LLM_PROVIDER=gemini
 export GEMINI_API_KEY=your_key_here
 
-# 4. Start all agents
+# 5. Start all agents + control panel
 python start.py
+
+# 6. In a separate terminal, start the frontend
+cd ui && bun run dev
 ```
 
 This starts:
 - Research Agent → `http://localhost:8001`
 - Solution Agent → `http://localhost:8002`
 - Experiment Agent → `http://localhost:8003`
-- Host Agent / Control Panel → `http://localhost:8000`
+- Control Panel API → `http://localhost:8000`
+- Frontend (dev) → `http://localhost:3000`
 
 ### Docker Setup
 
 ```bash
-# Build and start all containers
+# Build and start all agent containers
 docker-compose up --build
 
 # Stop all containers
 docker-compose down
 ```
 
+> Note: The frontend and Control Panel must be started separately outside Docker.
+
 ---
 
 ## API Reference
 
-### Host Agent Endpoints (port 8000)
+### Control Panel Endpoints (port 8000)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/` | Service info and available agents |
-| `GET` | `/health` | Health check |
-| `GET` | `/.well-known/agent-card` | A2A agent card |
-| `POST` | `/research` | Submit research query → aggregated report |
-| `POST` | `/a2a` | A2A protocol endpoint |
+| `GET` | `/` | Service info and available endpoints |
+| `GET` | `/api/status` | System status (agents, provider, uptime) |
+| `GET` | `/api/agents/stats` | Agent stats (total queries, avg response time) |
+| `POST` | `/api/agents/start` | Start all agent subprocesses |
+| `POST` | `/api/agents/stop` | Stop all agent subprocesses |
+| `GET` | `/api/agents/{name}/logs` | Get agent stdout/stderr logs |
+| `POST` | `/api/query` | Submit research query → returns `task_id` |
+| `GET` | `/api/query/stream/{task_id}` | SSE stream of task progress events |
+| `GET` | `/api/query/task/{task_id}` | Get task status and events |
+| `GET` | `/api/query/history` | Recent query history |
+| `DELETE` | `/api/query/history` | Clear all history |
+| `GET` | `/api/settings` | Get LLM provider settings |
+| `PUT` | `/api/settings` | Update LLM provider settings |
+| `GET` | `/api/setup/status` | Check if initial setup is complete |
+| `POST` | `/api/setup/step` | Complete a setup step |
+| `POST` | `/api/setup/complete` | Complete initial setup with provider config |
+| `POST` | `/api/diagram/agent-flow` | Generate agent flow Mermaid diagram |
+| `POST` | `/api/diagram/tech-stack` | Generate tech stack Mermaid diagram |
+| `GET` | `/api/discovery` | Discover agent cards and health |
 
 ### CV Research Agent Endpoints (port 8001)
 
@@ -364,7 +449,7 @@ docker-compose down
 ### Scenario 1: Research Proposal Generation
 
 ```bash
-curl -X POST http://localhost:8000/research \
+curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"query": "Generate a research proposal for crop disease detection"}'
 ```
@@ -378,7 +463,7 @@ curl -X POST http://localhost:8000/research \
 ### Scenario 2: Technology Recommendation
 
 ```bash
-curl -X POST http://localhost:8000/research \
+curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"query": "Recommend an architecture for multimodal fake news detection"}'
 ```
@@ -391,7 +476,7 @@ curl -X POST http://localhost:8000/research \
 ### Scenario 3: End-to-End Research Planning
 
 ```bash
-curl -X POST http://localhost:8000/research \
+curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"query": "Design a proof of concept for medical image diagnosis"}'
 ```
@@ -406,7 +491,7 @@ curl -X POST http://localhost:8000/research \
 ### Scenario 4: Non-Rejection of Non-Research Query
 
 ```bash
-curl -X POST http://localhost:8000/research \
+curl -X POST http://localhost:8000/api/query \
   -H "Content-Type: application/json" \
   -d '{"query": "What is the weather today?"}'
 ```
@@ -418,6 +503,18 @@ curl -X POST http://localhost:8000/research \
   "message": "This query does not appear to be related to AI/ML research...",
   "supported_topics": ["Research paper discovery and summarization", ...]
 }
+```
+
+### Streaming Task Progress
+
+```bash
+# Submit a query and get task_id
+TASK_ID=$(curl -s -X POST http://localhost:8000/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Compare CNNs vs ViTs for image classification"}' | jq -r '.task_id')
+
+# Stream progress events
+curl -N http://localhost:8000/api/query/stream/$TASK_ID
 ```
 
 ### Direct Agent Calls
@@ -476,7 +573,7 @@ Configuration is stored in **SQLite** (`data/agent_black.db`). The `.env` file o
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Bind address |
-| `PORT` | `8000` | Host agent port |
+| `PORT` | `8000` | Control panel port |
 | `DOCKER_BUILDKIT` | `1` | Docker build optimization |
 | `COMPOSE_PROJECT_NAME` | `agent-black` | Docker Compose project name |
 | `VITE_API_URL` | `http://localhost:8000/api` | Frontend API URL |
@@ -495,7 +592,7 @@ Configuration is stored in **SQLite** (`data/agent_black.db`). The `.env` file o
 | `ANTHROPIC_API_KEY` | — | Anthropic API key |
 | `ANTHROPIC_BASE_URL` | — | Custom Anthropic endpoint (optional) |
 | `ANTHROPIC_MODEL` | `claude-3-5-sonnet-20241022` | Anthropic model name |
-| `HOST_AGENT_URL` | `http://localhost:8000` | Host agent URL |
+| `HOST_AGENT_URL` | `http://localhost:8000` | Control panel URL |
 | `RESEARCH_AGENT_URL` | `http://localhost:8001` | CV research agent URL |
 | `SOLUTION_AGENT_URL` | `http://localhost:8002` | NLP solution agent URL |
 | `EXPERIMENT_AGENT_URL` | `http://localhost:8003` | ML experiment agent URL |
@@ -506,49 +603,61 @@ Configuration is stored in **SQLite** (`data/agent_black.db`). The `.env` file o
 
 ```
 Agent-BlackV2/
+├── app/                              # Control Panel (FastAPI on port 8000)
+│   ├── main.py                       # FastAPI app, CORS, logging, routes
+│   ├── database.py                   # SQLite CRUD, async wrappers
+│   ├── models.py                     # Pydantic request/response models
+│   └── routes/
+│       ├── control.py                # Agent start/stop, health, stats
+│       ├── query.py                  # Query submission + SSE streaming
+│       ├── settings.py               # LLM provider settings CRUD
+│       ├── diagram.py                # Mermaid diagram generation
+│       ├── discovery.py              # Agent card discovery
+│       └── setup.py                  # Initial setup wizard API
+│
 ├── agents/
-│   ├── host-agent/                  # Orchestrator (port 8000)
-│   │   ├── main.py                  # FastAPI app + A2A + agent card
-│   │   ├── orchestrator.py          # 5-step orchestration pipeline
+│   ├── host-agent/                   # Standalone orchestrator (port 8000)
+│   │   ├── main.py                   # FastAPI app + A2A + agent card
+│   │   ├── orchestrator.py           # 5-step orchestration pipeline
 │   │   ├── prompts/
-│   │   │   ├── orchestrator.txt     # Task decomposition prompt
-│   │   │   └── selection.txt        # Agent selection prompt
+│   │   │   ├── orchestrator.txt      # Task decomposition prompt
+│   │   │   └── selection.txt         # Agent selection prompt
 │   │   └── Dockerfile
 │   │
-│   ├── research-agent/              # CV specialist (port 8001)
-│   │   ├── main.py                  # FastAPI app + MCP + A2A
-│   │   ├── agent.py                 # LLM tool selection + execution
+│   ├── research-agent/               # CV specialist (port 8001)
+│   │   ├── main.py                   # FastAPI app + MCP + A2A
+│   │   ├── agent.py                  # LLM tool selection + execution
 │   │   ├── prompts/
-│   │   │   └── agent.txt            # Tool selection prompt
-│   │   ├── tools/                   # 13 MCP tools
-│   │   │   ├── paper_search.py      # CrossRef + Semantic Scholar + arXiv
-│   │   │   ├── summarizer.py        # LLM paper summarization
-│   │   │   ├── gap_analysis.py      # Research gap analysis
-│   │   │   ├── cv_datasets.py       # CV dataset recommendation
-│   │   │   ├── cv_models.py         # CV model recommendation
-│   │   │   ├── benchmark_search.py  # SOTA benchmark search
-│   │   │   ├── eval_advisor.py      # CV metric recommendation
+│   │   │   └── agent.txt             # Tool selection prompt
+│   │   ├── tools/                    # 13 MCP tools
+│   │   │   ├── paper_search.py       # CrossRef + Semantic Scholar + arXiv
+│   │   │   ├── summarizer.py         # LLM paper summarization
+│   │   │   ├── gap_analysis.py       # Research gap analysis
+│   │   │   ├── cv_datasets.py        # CV dataset recommendation
+│   │   │   ├── cv_models.py          # CV model recommendation
+│   │   │   ├── benchmark_search.py   # SOTA benchmark search
+│   │   │   ├── eval_advisor.py       # CV metric recommendation
 │   │   │   ├── architecture_comparison.py
-│   │   │   ├── synthetic_data.py    # Augmentation strategies
+│   │   │   ├── synthetic_data.py     # Augmentation strategies
 │   │   │   ├── citation_generator.py
 │   │   │   ├── solution_recommendation.py
 │   │   │   ├── prototype_guidance.py
 │   │   │   └── experiment_planner.py
 │   │   └── Dockerfile
 │   │
-│   ├── solution-agent/              # NLP specialist (port 8002)
+│   ├── solution-agent/               # NLP specialist (port 8002)
 │   │   ├── main.py
 │   │   ├── agent.py
 │   │   ├── prompts/
 │   │   │   └── agent.txt
-│   │   ├── tools/                   # 13 MCP tools
+│   │   ├── tools/                    # 13 MCP tools
 │   │   │   ├── paper_search.py
 │   │   │   ├── summarizer.py
 │   │   │   ├── gap_analysis.py
-│   │   │   ├── nlp_datasets.py      # HuggingFace, GLUE, SQuAD
-│   │   │   ├── rag_design.py        # RAG architecture design
-│   │   │   ├── llm_benchmark.py     # LLM comparison
-│   │   │   ├── eval_metrics.py      # BLEU, ROUGE, F1
+│   │   │   ├── nlp_datasets.py       # HuggingFace, GLUE, SQuAD
+│   │   │   ├── rag_design.py         # RAG architecture design
+│   │   │   ├── llm_benchmark.py      # LLM comparison
+│   │   │   ├── eval_metrics.py       # BLEU, ROUGE, F1
 │   │   │   ├── prompt_optimizer.py
 │   │   │   ├── information_extraction.py
 │   │   │   ├── citation_generator.py
@@ -557,40 +666,63 @@ Agent-BlackV2/
 │   │   │   └── experiment_planner.py
 │   │   └── Dockerfile
 │   │
-│   └── experiment-agent/            # ML specialist (port 8003)
+│   └── experiment-agent/             # ML specialist (port 8003)
 │       ├── main.py
 │       ├── agent.py
 │       ├── prompts/
 │       │   └── agent.txt
-│       ├── tools/                   # 13 MCP tools
+│       ├── tools/                    # 13 MCP tools
 │       │   ├── paper_search.py
 │       │   ├── summarizer.py
 │       │   ├── gap_analysis.py
-│       │   ├── models.py            # ML model recommendation
-│       │   ├── hyperparams.py       # Hyperparameter tuning
-│       │   ├── metrics.py           # ML metric recommendation
+│       │   ├── models.py             # ML model recommendation
+│       │   ├── hyperparams.py        # Hyperparameter tuning
+│       │   ├── metrics.py            # ML metric recommendation
 │       │   ├── feature_engineering.py
 │       │   ├── benchmark_search.py
-│       │   ├── explainability.py    # SHAP, LIME
-│       │   ├── time_series.py       # Forecasting strategies
+│       │   ├── explainability.py     # SHAP, LIME
+│       │   ├── time_series.py        # Forecasting strategies
 │       │   ├── solution_recommendation.py
 │       │   ├── prototype_guidance.py
 │       │   └── experiment_planner.py
 │       └── Dockerfile
 │
-├── shared/                          # Common modules
-│   ├── config.py                    # SQLite-backed configuration
-│   ├── llm.py                       # Multi-provider LLM client + retry
-│   ├── mcp.py                       # MCP tool registry (JSON-RPC 2.0)
-│   ├── a2a.py                       # A2A protocol (agent cards, tasks)
-│   ├── models.py                    # Pydantic request/response models
-│   ├── crossref.py                  # CrossRef academic API client
-│   └── semantic_scholar.py          # Semantic Scholar API client
+├── shared/                           # Common modules
+│   ├── config.py                     # SQLite-backed configuration
+│   ├── llm.py                        # Multi-provider LLM client + retry
+│   ├── mcp.py                        # MCP tool registry (JSON-RPC 2.0)
+│   ├── a2a.py                        # A2A protocol (agent cards, tasks)
+│   ├── models.py                     # Pydantic request/response models
+│   ├── crossref.py                   # CrossRef academic API client
+│   └── semantic_scholar.py           # Semantic Scholar API client
 │
-├── docker-compose.yml               # 4-service Docker setup
-├── requirements.txt                 # Python dependencies
-├── start.py                         # Local multi-process launcher
-└── .env                             # Infrastructure config
+├── ui/                               # React frontend (TanStack Start)
+│   ├── src/
+│   │   ├── routes/                   # File-based routing
+│   │   │   ├── index.tsx             # Chat page (default)
+│   │   │   ├── dashboard.tsx         # Dashboard
+│   │   │   ├── agents.tsx            # Agents management
+│   │   │   ├── history.tsx           # Query history
+│   │   │   ├── settings.tsx          # Settings
+│   │   │   └── diagram.tsx           # Diagram viewer
+│   │   ├── components/
+│   │   │   ├── layout/               # Header, SideDrawer
+│   │   │   ├── chat/                 # MessageBubble, InputArea, StatusBar, etc.
+│   │   │   ├── shared/               # MermaidDiagram, StatusDot, Collapsible
+│   │   │   ├── setup/                # SetupWalkthrough wizard
+│   │   │   └── ui/                   # shadcn/ui components
+│   │   ├── hooks/                    # useIsMobile, useDarkMode
+│   │   ├── lib/                      # API client, store, utils
+│   │   └── styles.css                # Tailwind + theme variables
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── data/                             # SQLite database (auto-created)
+├── logs/                             # Agent log files (auto-created)
+├── docker-compose.yml                # 4-service Docker setup
+├── requirements.txt                  # Python dependencies
+├── start.py                          # Local multi-process launcher
+└── .env                              # Infrastructure config
 ```
 
 ---
@@ -599,14 +731,19 @@ Agent-BlackV2/
 
 | Layer | Technology |
 |-------|------------|
-| Framework | FastAPI + Uvicorn |
+| Backend Framework | FastAPI + Uvicorn |
+| Frontend Framework | React 19 + TanStack Start + TanStack Router |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| State Management | Zustand + TanStack React Query |
 | LLM Providers | Google Gemini, OpenAI, Anthropic |
 | Protocols | MCP (JSON-RPC 2.0), A2A (JSON-RPC 2.0) |
 | Academic APIs | CrossRef, Semantic Scholar, arXiv |
 | Validation | Pydantic v2 |
 | HTTP Client | httpx (async) |
+| Database | SQLite (WAL mode) |
 | Containerization | Docker + Docker Compose |
-| Configuration | SQLite + python-dotenv |
+| Frontend Bundler | Vite 7 |
+| Diagrams | Mermaid.js |
 
 ---
 

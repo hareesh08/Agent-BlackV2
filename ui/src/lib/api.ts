@@ -181,15 +181,25 @@ export const api = {
   startAgents: () => request<any>("/agents/start", { method: "POST" }),
   stopAgents: () => request<any>("/agents/stop", { method: "POST" }),
 
-  getDiagramAgentFlow: () =>
-    request<{ diagram: string }>("/diagram/agent-flow", {
+  getDiagramAgentFlow: (query?: string) =>
+    request<{ diagram: string; description: string }>("/diagram/agent-flow", {
+      method: "POST",
+      body: JSON.stringify({ query: query || "" }),
+    }),
+  getDiagramTechStack: () =>
+    request<{ diagram: string; description: string }>("/diagram/tech-stack", {
       method: "POST",
       body: JSON.stringify({}),
     }),
-  getDiagramTechStack: () =>
-    request<{ diagram: string }>("/diagram/tech-stack", {
+  getDiagramFromReport: (data: {
+    query: string;
+    report: Record<string, any>;
+    agents_used?: string[];
+    events?: { step: string; status: string; detail: string; timestamp: number }[];
+  }) =>
+    request<{ diagram: string; description: string }>("/diagram/from-report", {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify(data),
     }),
 
   setupStatus: () => request<SetupStatus>("/setup/status"),

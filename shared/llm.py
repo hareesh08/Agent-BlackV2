@@ -4,17 +4,29 @@ import asyncio
 import time
 import logging
 
-from shared.config import (
-    LLM_PROVIDER,
-    GEMINI_API_KEY, GEMINI_BASE_URL, GEMINI_MODEL,
-    OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL,
-    ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, ANTHROPIC_MODEL,
-)
+from shared.config import get_setting
 
 logger = logging.getLogger(__name__)
 
 LLM_MAX_RETRIES = 3
 LLM_RETRY_DELAY = 2
+
+
+def _get_llm_config() -> dict:
+    """Read LLM config from SQLite at call time (not import time)."""
+    provider = get_setting("LLM_PROVIDER", "gemini")
+    return {
+        "provider": provider,
+        "gemini_api_key": get_setting("GEMINI_API_KEY"),
+        "gemini_base_url": get_setting("GEMINI_BASE_URL"),
+        "gemini_model": get_setting("GEMINI_MODEL", "gemini-1.5-flash"),
+        "openai_api_key": get_setting("OPENAI_API_KEY"),
+        "openai_base_url": get_setting("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        "openai_model": get_setting("OPENAI_MODEL", "gpt-4o"),
+        "anthropic_api_key": get_setting("ANTHROPIC_API_KEY"),
+        "anthropic_base_url": get_setting("ANTHROPIC_BASE_URL"),
+        "anthropic_model": get_setting("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+    }
 
 
 def extract_json(raw: str) -> dict:
@@ -54,22 +66,22 @@ def extract_json(raw: str) -> dict:
     raise ValueError(f"Could not extract valid JSON from LLM response: {raw[:200]}")
 
 
-def _call_gemini(system_prompt: str, user_prompt: str) -> str:
+def _call_gemini(system_prompt: str, user_prompt: str, cfg: dict) -> str:
     import google.generativeai as genai
-    client_opts = {"api_key": GEMINI_API_KEY}
-    if GEMINI_BASE_URL:
-        client_opts["client_options"] = {"api_endpoint": GEMINI_BASE_URL}
+    client_opts = {"api_key": cfg["gemini_api_key"]}
+    if cfg["gemini_base_url"]:
+        client_opts["client_options"] = {"api_endpoint": cfg["gemini_base_url"]}
     genai.configure(**client_opts)
     full_prompt = f"{system_prompt}\n\n{user_prompt}"
-    response = genai.GenerativeModel(GEMINI_MODEL).generate_content(full_prompt)
+    response = genai.GenerativeModel(cfg["gemini_model"]).generate_content(full_prompt)
     return response.text
 
 
-def _call_openai(system_prompt: str, user_prompt: str) -> str:
+def _call_openai(system_prompt: str, user_prompt: str, cfg: dict) -> str:
     from openai import OpenAI
-    client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+    client = OpenAI(api_key=cfg["openai_api_key"], base_url=cfg["openai_base_url"])
     response = client.chat.completions.create(
-        model=OPENAI_MODEL,
+        model=cfg["openai_model"],
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -78,14 +90,14 @@ def _call_openai(system_prompt: str, user_prompt: str) -> str:
     return response.choices[0].message.content
 
 
-def _call_anthropic(system_prompt: str, user_prompt: str) -> str:
+def _call_anthropic(system_prompt: str, user_prompt: str, cfg: dict) -> str:
     import anthropic
-    client_kwargs = {"api_key": ANTHROPIC_API_KEY}
-    if ANTHROPIC_BASE_URL:
-        client_kwargs["base_url"] = ANTHROPIC_BASE_URL
+    client_kwargs = {"api_key": cfg["anthropic_api_key"]}
+    if cfg["anthropic_base_url"]:
+        client_kwargs["base_url"] = cfg["anthropic_base_url"]
     client = anthropic.Anthropic(**client_kwargs)
     response = client.messages.create(
-        model=ANTHROPIC_MODEL,
+        model=cfg["anthropic_model"],
         max_tokens=4096,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
@@ -94,13 +106,15 @@ def _call_anthropic(system_prompt: str, user_prompt: str) -> str:
 
 
 def _call_llm_once(system_prompt: str, user_prompt: str) -> str:
-    if LLM_PROVIDER == "gemini":
-        return _call_gemini(system_prompt, user_prompt)
-    if LLM_PROVIDER == "openai":
-        return _call_openai(system_prompt, user_prompt)
-    if LLM_PROVIDER == "anthropic":
-        return _call_anthropic(system_prompt, user_prompt)
-    raise ValueError(f"Unsupported LLM_PROVIDER: {LLM_PROVIDER}. Choose from: gemini, openai, anthropic")
+    cfg = _get_llm_config()
+    provider = cfg["provider"]
+    if provider == "gemini":
+        return _call_gemini(system_prompt, user_prompt, cfg)
+    if provider == "openai":
+        return _call_openai(system_prompt, user_prompt, cfg)
+    if provider == "anthropic":
+        return _call_anthropic(system_prompt, user_prompt, cfg)
+    raise ValueError(f"Unsupported LLM_PROVIDER: {provider}. Choose from: gemini, openai, anthropic")
 
 
 def call_llm(system_prompt: str, user_prompt: str) -> str:

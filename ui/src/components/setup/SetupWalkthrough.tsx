@@ -153,7 +153,7 @@ export function SetupWalkthrough({ onComplete }: SetupProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-surface shadow-xl p-8">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-surface shadow-xl p-6 sm:p-8">
         <div className="mb-8 flex items-center gap-2">
           {steps.map((_, i) => (
             <div key={i} className="flex items-center gap-2 flex-1">

@@ -38,7 +38,7 @@ function HistoryPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[860px] px-4 py-6 flex flex-col gap-4">
+    <div className="mx-auto w-full max-w-[860px] px-3 py-4 sm:px-4 sm:py-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">History</h1>
         {items.length > 0 && (

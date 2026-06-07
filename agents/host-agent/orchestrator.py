@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import httpx
 from shared.llm import async_call_llm, extract_json
-from shared.config import AGENT_URLS
+from shared.config import get_setting
 
 DECOMPOSE_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "orchestrator.txt")
 SELECTION_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "selection.txt")
@@ -79,6 +79,22 @@ async def orchestrate(query: str, progress_callback=None) -> dict:
     if progress_callback is None:
         progress_callback = lambda step, status, detail: None
 
+    try:
+        return await _orchestrate_inner(query, progress_callback)
+    except Exception as e:
+        progress_callback("orchestrator", "error", f"Orchestration failed: {e}")
+        return {
+            "error": str(e),
+            "literature_review": "",
+            "datasets": "",
+            "models": "",
+            "evaluation_plan": "",
+            "prototype_guidance": "",
+        }
+
+
+async def _orchestrate_inner(query: str, progress_callback) -> dict:
+
     # ── Step 0: Research-relevance gate ────────────────────────────────────────
     progress_callback("validating_query", "running", "Checking if query is research-related...")
     if not await _is_research_query(query):
@@ -88,24 +104,30 @@ async def orchestrate(query: str, progress_callback=None) -> dict:
 
     # ── Step 1: Select agents ──────────────────────────────────────────────────
     progress_callback("selecting_agents", "running", "Selecting relevant agents...")
+    valid_agents = {"research", "solution", "experiment"}
+    selected_agents = list(valid_agents)  # default fallback
+
     try:
         selection_prompt = _load_prompt_safe(SELECTION_PROMPT_PATH)
         selection_raw = await async_call_llm(
-            system_prompt="You are a research orchestrator that selects relevant agents.",
+            system_prompt="You are a research orchestrator that selects relevant agents. You MUST respond with valid JSON only.",
             user_prompt=selection_prompt.format(query=query)
         )
         selection = extract_json(selection_raw)
-        selected_agents = selection.get("selected_agents", ["research", "solution", "experiment"])
-        # Validate agent names
-        valid_agents = {"research", "solution", "experiment"}
-        selected_agents = [a for a in selected_agents if a in valid_agents]
+
+        if isinstance(selection, dict):
+            raw_list = selection.get("selected_agents", [])
+            if isinstance(raw_list, list):
+                selected_agents = [a for a in raw_list if isinstance(a, str) and a in valid_agents]
+        elif isinstance(selection, list):
+            selected_agents = [a for a in selection if isinstance(a, str) and a in valid_agents]
+
         if not selected_agents:
             progress_callback("selecting_agents", "complete", "No relevant agents found for this query")
             return NOT_RESEARCH_RESPONSE
         progress_callback("selecting_agents", "complete", f"Selected: {', '.join(selected_agents)}")
     except Exception as e:
-        selected_agents = ["research", "solution", "experiment"]
-        progress_callback("selecting_agents", "complete", f"Selection failed, using all agents: {e}")
+        progress_callback("selecting_agents", "complete", f"Selection parse failed, using all agents")
 
     # ── Step 2: Decompose query ────────────────────────────────────────────────
     progress_callback("decomposing_task", "running", "Decomposing query into sub-tasks...")
@@ -122,9 +144,9 @@ async def orchestrate(query: str, progress_callback=None) -> dict:
         progress_callback("decomposing_task", "complete", f"Decomposition failed, using original query: {e}")
 
     agent_endpoints = {
-        "research": ("research_task", f"{AGENT_URLS['research']}/research"),
-        "solution": ("solution_task", f"{AGENT_URLS['solution']}/solution"),
-        "experiment": ("experiment_task", f"{AGENT_URLS['experiment']}/experiment"),
+        "research": ("research_task", f"{get_setting('RESEARCH_AGENT_URL', 'http://localhost:8001')}/research"),
+        "solution": ("solution_task", f"{get_setting('SOLUTION_AGENT_URL', 'http://localhost:8002')}/solution"),
+        "experiment": ("experiment_task", f"{get_setting('EXPERIMENT_AGENT_URL', 'http://localhost:8003')}/experiment"),
     }
 
     # ── Step 3: Dispatch to sub-agents concurrently ────────────────────────────
@@ -133,14 +155,27 @@ async def orchestrate(query: str, progress_callback=None) -> dict:
         payload = {"query": tasks.get(task_key, query)}
         progress_callback(agent_name, "running", f"Calling {agent_name} agent...")
         try:
-            r = await client.post(url, json=payload)
+            r = await client.post(url, json=payload, timeout=120)
             r.raise_for_status()
-            result = r.json()
+            try:
+                result = r.json()
+            except Exception:
+                result = {"raw_response": r.text[:2000]}
             progress_callback(agent_name, "complete", f"{agent_name} agent completed")
             return agent_name, result
+        except httpx.HTTPStatusError as e:
+            error_detail = ""
+            try:
+                error_detail = e.response.text[:500]
+            except Exception:
+                pass
+            msg = f"{agent_name} agent returned HTTP {e.response.status_code}: {error_detail}"
+            progress_callback(agent_name, "error", msg)
+            return agent_name, {"error": msg}
         except Exception as e:
-            progress_callback(agent_name, "error", f"{agent_name} agent failed: {str(e)}")
-            return agent_name, {"error": str(e)}
+            msg = f"{agent_name} agent connection failed: {e}"
+            progress_callback(agent_name, "error", msg)
+            return agent_name, {"error": msg}
 
     async with httpx.AsyncClient(timeout=120) as client:
         agent_tasks = [_call_agent(client, name) for name in selected_agents]
@@ -163,7 +198,10 @@ Return ONLY valid JSON with keys: literature_review, datasets, models, evaluatio
             user_prompt=agg_prompt
         )
         progress_callback("aggregating", "complete", "Report finalized")
-        return extract_json(final_raw)
+        result = extract_json(final_raw)
+        if isinstance(result, dict):
+            result["selected_agents"] = selected_agents
+        return result
     except Exception as e:
         progress_callback("aggregating", "error", f"Aggregation failed: {e}")
         # Return raw agent responses as fallback
@@ -173,5 +211,6 @@ Return ONLY valid JSON with keys: literature_review, datasets, models, evaluatio
             "models": str(responses.get("solution", {}).get("result", {})),
             "evaluation_plan": str(responses.get("experiment", {}).get("result", {})),
             "prototype_guidance": f"Aggregation failed: {e}",
+            "selected_agents": selected_agents,
         }
         return fallback

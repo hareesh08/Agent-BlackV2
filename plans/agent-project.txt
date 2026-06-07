@@ -1,0 +1,537 @@
+Multi-Agent Research Assistant Ecosystem using MCP and A2A
+Overview
+The objective of this assignment is to build a collaborative multi-agent research ecosystem that leverages Large Language Models (LLMs), Prompt Engineering, Model Context Protocol (MCP), Agent-to-Agent (A2A) communication, and modern Agentic AI frameworks.
+
+
+
+
+Team Structure
+Each team will consist of three members.
+
+Each member will be responsible for building one specialized research agent.
+
+
+Team MemberSpecialized AgentMember AComputer Vision Research AgentMember BNLP Research AgentMember CMachine Learning Research Agent
+
+Model availability:
+
+Use any of the following or similar models that you can find here if Gemini's request limits get exhausted.
+
+https://build.nvidia.com/google/gemma-3n-e4b-it, https://build.nvidia.com/nvidia/nemotron-mini-4b-instruct
+
+Project Goal
+The goal is to create a research assistant ecosystem where:
+
+? Every member develops a specialized agent
+? Every member exposes tools through MCP
+? Every member deploys their agent as an A2A-compatible service
+? Every member creates their own Host Agent
+? Every Host Agent can communicate with:
+? The owner's specialized agent
+          ? Both teammates' specialized agents This ensures that every participant learns both:
+1. Agent Development
+2. Agent Consumption and Orchestration
+
+
+
+
+Expected Architecture
+Each participant will build:
+
+1. Specialized Research Agent
+A domain expert agent responsible for solving research-related problems in its specialization. Examples:
+Computer Vision Agent
+
+Specializes in:
+
+? Image Classification
+? Object Detection
+? Segmentation
+? Vision Transformers
+? Vision-Language Models
+? Medical Imaging
+? Video Analytics
+
+NLP Agent
+
+Specializes in:
+
+? LLMs
+? Retrieval Augmented Generation
+? Prompt Engineering
+? Information Extraction
+? Text Classification
+? Summarization
+? Conversational AI
+
+Machine Learning Agent
+
+Specializes in:
+
+? Classical Machine Learning
+? Model Selection
+? Feature Engineering
+? Time Series
+? Experiment Design
+? Evaluation Strategies
+? Hyperparameter Optimization
+
+
+
+2. MCP Server
+Each specialized agent must expose its capabilities through MCP tools. The MCP server should act as the tool layer for the agent.
+The agent should invoke MCP tools whenever external information or specialized processing is required.
+
+
+
+3. A2A Server
+Each specialized agent must be deployed as a service that can be accessed by teammates. The deployed service will act as an A2A endpoint.
+Other Host Agents should be able to:
+
+? Discover capabilities
+? Send requests
+
+? Receive responses
+
+
+
+4. Host Agent
+Each participant must create their own Host Agent. This Host Agent acts as an orchestrator.
+Responsibilities:
+
+? Understand user requests
+? Break down tasks
+? Decide which specialized agents to invoke
+? Communicate with remote agents
+? Aggregate responses
+? Generate final output
+
+Every participant will therefore have:
+
+? One Specialized Agent
+? One MCP Server
+? One A2A Endpoint
+? One Host Agent
+
+
+
+
+Specialized Agent Requirements
+Every specialized agent must:
+
+? Have a clearly defined domain expertise
+? Use an LLM
+? Use prompt engineering
+? Use MCP tools
+? Return structured responses
+   ? Be deployable as an A2A service Required capabilities:
+? Research paper discovery
+? Research summarization
+? Solution recommendation
+
+? Experiment planning
+? Prototype guidance
+
+
+
+
+MCP Server Requirements
+Each participant must create an MCP server. Minimum requirement:
+3 tools. Recommended:
+5-10 tools.
+
+Tools should support:
+
+? Research
+? Analysis
+? Solutioning
+? Proof-of-concept design
+
+
+
+
+Common Tools (All Agents)
+Paper Search Tool
+Purpose:
+
+Search academic literature. Possible sources:
+? Arxiv
+? Semantic Scholar
+   ? CrossRef Input:
+Query
+
+Output: Relevant papers
+
+
+Paper Summarization Tool
+Purpose:
+
+Summarize research papers. Output:
+? Summary
+? Key Contributions
+? Limitations
+
+
+
+Research Gap Analysis Tool
+Purpose:
+
+Identify unexplored opportunities. Output:
+? Existing approaches
+? Limitations
+? Potential research gaps
+
+
+
+Citation Generator
+Purpose:
+
+Generate references in standard formats.
+
+
+
+Experiment Planner
+
+Purpose:
+
+Generate experiment plans. Output:
+? Datasets
+? Models
+? Metrics
+? Evaluation strategy
+
+
+
+
+Computer Vision Agent Tools
+Recommended tools:
+
+Dataset Finder
+Examples:
+
+? COCO
+? ImageNet
+? Open Images
+? Medical datasets
+
+
+
+Model Recommender
+Recommend:
+
+? CNNs
+? Vision Transformers
+? Segmentation Models
+
+
+
+Benchmark Search
+Identify SOTA models.
+
+
+
+Evaluation Metric Advisor
+Recommend:
+
+? Accuracy
+? IoU
+? mAP
+? Dice Score
+
+
+
+Architecture Comparison Tool
+Compare candidate architectures.
+
+
+
+Synthetic Data Strategy Tool
+Recommend augmentation techniques.
+
+
+
+
+NLP Agent Tools
+Recommended tools:
+
+Dataset Finder
+Examples:
+
+? HuggingFace datasets
+? GLUE
+? SuperGLUE
+? SQuAD
+
+
+
+Prompt Optimizer
+
+Generate improved prompts.
+
+
+
+RAG Design Tool
+Recommend:
+
+? Chunking strategy
+? Embedding model
+? Retrieval approach
+
+
+
+Information Extraction Tool
+Identify entities, relationships, key concepts.
+
+
+
+LLM Benchmark Tool
+Compare LLMs.
+
+
+
+Evaluation Metric Tool
+Recommend:
+
+? BLEU
+? ROUGE
+? F1
+? Exact Match
+
+
+
+
+Machine Learning Agent Tools
+Recommended tools:
+
+Model Recommendation Tool
+Recommend suitable ML algorithms.
+
+
+
+Feature Engineering Advisor
+Suggest transformations.
+
+
+
+Experiment Design Tool
+Recommend:
+
+? Baselines
+? Ablations
+? Evaluation strategy
+
+
+
+Hyperparameter Recommendation Tool
+Suggest tuning ranges.
+
+
+
+Time Series Strategy Tool
+Recommend forecasting approaches.
+
+
+
+Model Explainability Tool
+Recommend:
+
+? SHAP
+? LIME
+? Feature Importance
+
+
+
+
+Agent Deployment Requirements
+Each specialized agent must be deployed. Possible deployment approaches:
+? FastAPI
+? LangGraph
+? CrewAI
+? AutoGen
+? Google ADK
+
+Containerization using Docker is strongly recommended. Each deployed agent must expose:
+? Agent Name
+? Description
+? Supported Tasks
+   ? Endpoint URL Example:
+CV Research Agent Capabilities:
+? Literature Review
+? Dataset Recommendation
+? Architecture Recommendation
+? Benchmark Discovery
+
+
+
+
+A2A Requirements
+Every specialized agent must support requests from external agents. Minimum requirements:
+
+Capability Discovery
+The agent should describe:
+
+? What it can do
+? What tasks it supports
+
+
+
+Request Processing
+The agent should accept:
+
+? Task descriptions
+? Research questions
+
+
+
+Structured Responses
+Example:
+
+{
+"recommendations": [], "datasets": [],
+"models": [],
+"reasoning": ""
+}
+
+
+
+
+Host Agent Requirements
+Every participant must create their own Host Agent. This is mandatory.
+The Host Agent should be capable of connecting to:
+
+1. Its own specialized agent
+2. Teammate Agent 1
+3. Teammate Agent 2
+
+
+
+
+Host Agent Responsibilities
+Task Understanding
+Interpret user requests.
+
+
+
+Agent Selection
+Determine which agents are required. Examples:
+Request
+
+"Build an OCR solution." Likely agents:
+? Computer Vision
+? Machine Learning
+
+
+
+Request
+
+"Create a legal document assistant." Likely agents:
+? NLP
+? Machine Learning
+
+
+
+Task Decomposition
+Break large tasks into smaller tasks.
+
+Example:
+
+Research Question:
+
+"Develop a multimodal healthcare AI system." Subtasks:
+CV Agent
+
+   ? Analyze medical imaging approaches NLP Agent
+   ? Analyze clinical text approaches ML Agent
+? Design evaluation strategy
+
+
+
+Result Aggregation
+Collect outputs from all agents. Combine into a final recommendation.
+
+
+
+Integration Requirements
+Every Host Agent must successfully communicate with:
+
+? Its own specialized agent
+   ? Both teammates' specialized agents Total connections per Host Agent:
+3
+Total agent ecosystem: 3 Specialized Agents
+3 Host Agents
+
+
+
+
+Required Demonstration Scenarios
+Scenario 1
+
+Research Proposal Generation Input:
+"Generate a research proposal for crop disease detection." Expected:
+? Literature review
+? Datasets
+? Models
+? Evaluation strategy
+
+
+
+Scenario 2
+
+Technology Recommendation Input:
+"Recommend an architecture for multimodal fake news detection." Expected:
+? NLP recommendations
+? CV recommendations
+? ML recommendations
+
+
+
+Scenario 3
+
+End-to-End Research Planning Input:
+"Design a proof of concept for medical image diagnosis." Expected:
+
+? Relevant papers
+? Datasets
+? Models
+? Experiment plan
+? Prototype guidance
+
+
+
+
+Deliverables
+Each participant must submit:
+
+Source Code
+Repository containing:
+
+? Agent
+? MCP Server
+? Tools
+? Host Agent
+? Deployment Code
+
+
+
+Documentation
+Must include:
+
+? Architecture Diagram
+? Agent Design
+? MCP Design
+? Tool Descriptions
+? Deployment Guide
+? A2A Communication Design
+? Host Agent Workflow
+
+
+Bonus Challenges
+? Agent memory
+? Multi-agent debate
+? RAG integration
+
+? Autonomous research proposal generation
+? Code generation for proof-of-concept implementations
+? Agent self-evaluation and critique
+? Dynamic agent discovery
+? Multi-framework interoperability (CrewAI + LangGraph + Google ADK)

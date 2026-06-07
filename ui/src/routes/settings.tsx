@@ -63,7 +63,7 @@ function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[720px] px-4 py-6 flex flex-col gap-6">
+    <div className="mx-auto w-full max-w-[720px] px-3 py-4 sm:px-4 sm:py-6 flex flex-col gap-6">
       <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
 
       <Section title="LLM Provider">
@@ -123,7 +123,7 @@ function SettingsPage() {
       </Section>
 
       <Section title="Theme">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(
             [
               { v: null, label: "System" },
@@ -151,7 +151,7 @@ function SettingsPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-5 flex flex-col gap-4">
+    <div className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-4 sm:p-5">
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
     </div>

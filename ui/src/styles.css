@@ -141,3 +141,18 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .fade-in-up { animation: fade-in-up 0.25s ease-out both; }
+
+/* Responsive base utilities */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    .px-safe { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  }
+}

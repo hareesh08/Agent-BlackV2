@@ -39,7 +39,7 @@ async def run_orchestration(task_id: str, query: str):
 
         # Generate diagram in a thread (it's a synchronous CPU-bound function)
         diagram = await asyncio.to_thread(generate_agent_flow_diagram, query, report)
-        agents_used = list(report.keys()) if isinstance(report, dict) else []
+        agents_used = report.get("selected_agents", []) if isinstance(report, dict) else []
 
         await async_update_task_result(task_id, report, diagram, agents_used)
         await async_save_query(query, report, diagram, agents_used)

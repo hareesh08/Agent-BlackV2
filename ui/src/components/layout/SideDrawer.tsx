@@ -5,9 +5,10 @@ import {
   History,
   Boxes,
   Settings,
+  Info,
   X,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
 
 const items = [
@@ -16,12 +17,23 @@ const items = [
   { to: "/history", label: "History", icon: History },
   { to: "/agents", label: "Agents", icon: Boxes },
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/about", label: "About", icon: Info },
 ] as const;
 
 export function SideDrawer() {
   const open = useAppStore((s) => s.drawerOpen);
   const setOpen = useAppStore((s) => s.setDrawerOpen);
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const touchStartX = useRef(0);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (diff > 80) setOpen(false);
+  }, [setOpen]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -38,6 +50,8 @@ export function SideDrawer() {
         }`}
       />
       <aside
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className={`fixed left-0 top-0 z-50 h-full w-72 border-r border-border bg-surface transition-transform ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -72,8 +86,14 @@ export function SideDrawer() {
             );
           })}
         </nav>
-        <div className="absolute bottom-4 left-4 right-4 text-xs text-text-muted">
-          v0.1.0 · monochrome
+        <div className="absolute bottom-4 left-4 right-4">
+          <Link
+            to="/about"
+            onClick={() => setOpen(false)}
+            className="block text-xs text-text-muted hover:text-foreground transition-colors"
+          >
+            Agent Black V2 · Multi-Agent Research Ecosystem
+          </Link>
         </div>
       </aside>
     </>
