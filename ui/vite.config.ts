@@ -39,10 +39,10 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
-      allowedHosts: ["agentblack.hareeshworks.in"],
+      allowedHosts: true,
       proxy: {
         "/api": {
-          target: "http://127.0.0.1:8000",
+          target: process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000",
           changeOrigin: true,
         },
       },
@@ -50,7 +50,7 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: "::",
       port: 8080,
-      allowedHosts: ["agentblack.hareeshworks.in"],
+      allowedHosts: true,
     },
   };
 });

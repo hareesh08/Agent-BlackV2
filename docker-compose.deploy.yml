@@ -72,6 +72,8 @@ services:
   frontend:
     image: ghcr.io/${GITHUB_OWNER}/agent-black/frontend:latest
     env_file: .env
+    environment:
+      - VITE_PROXY_TARGET=http://control-panel:8000
     ports:
       - "8080:8080"
     restart: unless-stopped

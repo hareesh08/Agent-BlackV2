@@ -48,6 +48,8 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     env_file: .env
+    environment:
+      - VITE_PROXY_TARGET=http://control-panel:8000
     depends_on:
       - control-panel
     restart: unless-stopped

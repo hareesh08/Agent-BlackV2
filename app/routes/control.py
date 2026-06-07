@@ -67,8 +67,18 @@ async def get_status():
     )
 
 
+def _is_docker() -> bool:
+    """Detect if running inside a Docker container."""
+    return os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv")
+
+
 @router.post("/agents/start")
 def start_agents():
+    if _is_docker():
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot start agents from inside Docker. Agents run as separate containers.",
+        )
     os.makedirs(LOGS_DIR, exist_ok=True)
     started = []
     for agent in AGENTS:
