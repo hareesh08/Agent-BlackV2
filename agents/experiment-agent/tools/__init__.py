@@ -1,5 +1,6 @@
 from .paper_search import search_papers
 from .experiment_planner import plan_experiment
+from .citation_generator import citation_generator
 from .metrics import eval_metric_advisor
 from .hyperparams import hyperparameter_advice
 from .models import recommend_models
@@ -14,9 +15,13 @@ from .summarizer import summarize_paper
 
 TOOLS = {
     "search_papers": search_papers,
+    "experiment_planner": plan_experiment,
     "plan_experiment": plan_experiment,
+    "citation_generator": citation_generator,
+    "evaluation_metric_tool": eval_metric_advisor,
     "eval_metric_advisor": eval_metric_advisor,
     "hyperparameter_advice": hyperparameter_advice,
+    "model_recommendation_tool": recommend_models,
     "recommend_models": recommend_models,
     "benchmark_search": benchmark_search_ml,
     "feature_engineering_advisor": feature_engineering_advisor,
