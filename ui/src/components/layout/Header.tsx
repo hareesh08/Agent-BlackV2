@@ -21,7 +21,7 @@ export function Header() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to="/" search={{ new: "1" }} className="flex items-center gap-2 group">
           <div className="h-6 w-6 rounded-md bg-foreground flex items-center justify-center">
             <span className="text-[10px] font-bold text-background tracking-tighter">A·B</span>
           </div>

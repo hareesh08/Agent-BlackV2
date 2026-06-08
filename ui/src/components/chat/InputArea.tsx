@@ -4,9 +4,11 @@ import { useRef, useState, type KeyboardEvent } from "react";
 export function InputArea({
   onSubmit,
   disabled,
+  placeholder,
 }: {
   onSubmit: (text: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -53,7 +55,7 @@ export function InputArea({
             }}
             onKeyDown={onKey}
             rows={1}
-            placeholder="Ask the agents to research, design, or prototype…"
+            placeholder={placeholder || "Ask the agents to research, design, or prototype..."}
             className="flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-text-muted sm:text-[15px]"
           />
           <button

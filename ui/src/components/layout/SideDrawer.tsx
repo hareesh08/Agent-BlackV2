@@ -13,7 +13,7 @@ import { useAppStore } from "@/lib/store";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/", label: "Chat", icon: MessageSquare },
+  { to: "/", label: "Chat", icon: MessageSquare, search: { new: "1" as const } },
   { to: "/history", label: "History", icon: History },
   { to: "/agents", label: "Agents", icon: Boxes },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -67,12 +67,13 @@ export function SideDrawer() {
           </button>
         </div>
         <nav className="p-2">
-          {items.map(({ to, label, icon: Icon }) => {
+          {items.map(({ to, label, icon: Icon, search }) => {
             const active = path === to;
             return (
               <Link
                 key={to}
                 to={to}
+                search={search}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                   active

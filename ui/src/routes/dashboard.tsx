@@ -33,6 +33,7 @@ function Dashboard() {
         <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
         <Link
           to="/"
+          search={{ new: "1" }}
           className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-2 text-sm text-background hover:opacity-90"
         >
           New Query <ArrowRight className="h-3.5 w-3.5" />
