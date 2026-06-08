@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 import httpx
 from app.models import AgentCardResponse
 from shared.config import AGENT_URLS
+from shared.a2a_sdk import A2A_CARD_PATH
 from app.database import save_agent_discovery, get_agent_discovery
 
 router = APIRouter(tags=["discovery"])
@@ -29,11 +30,20 @@ async def discover_agents():
     for key, url in AGENT_URLS.items():
         try:
             async with httpx.AsyncClient(timeout=5) as client:
-                r = await client.get(f"{url}/capabilities")
+                r = await client.get(f"{url}{A2A_CARD_PATH}")
                 if r.status_code == 200:
                     data = r.json()
                     results[key] = data
-                    save_agent_discovery(key, url, data.get("port", 0), data.get("tasks", []), "running")
+                    skills = [skill.get("id", "") for skill in data.get("skills", []) if isinstance(skill, dict)]
+                    port = 0
+                    for iface in data.get("supportedInterfaces", []):
+                        if isinstance(iface, dict):
+                            try:
+                                port = int(str(iface.get("url", "")).rsplit(":", 1)[-1].split("/")[0])
+                                break
+                            except (ValueError, IndexError):
+                                continue
+                    save_agent_discovery(key, url, port, skills, "running")
                 else:
                     results[key] = {"error": f"HTTP {r.status_code}"}
         except Exception as e:
@@ -48,7 +58,7 @@ async def get_agent_card(agent_name: str):
     url = AGENT_URLS[agent_name]
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get(f"{url}/.well-known/agent-card")
+            r = await client.get(f"{url}{A2A_CARD_PATH}")
             r2 = await client.get(f"{url}/health")
             return AgentCardResponse(
                 card=r.json() if r.status_code == 200 else {"error": f"HTTP {r.status_code}"},

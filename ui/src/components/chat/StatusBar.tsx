@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { useAppStore } from "@/lib/store";
-import { api, type AgentStats, type SystemStatus } from "@/lib/api";
+import { api, type AgentCard, type AgentStats, type SystemStatus } from "@/lib/api";
 import { usePolling } from "@/hooks/use-polling";
 import { useLiveUptime } from "@/hooks/use-live-uptime";
 
@@ -18,10 +18,24 @@ export function StatusBar() {
 
   const statusPoll = usePolling<SystemStatus>(() => api.status(), { interval: 15000 });
   const statsPoll = usePolling<AgentStats>(() => api.agentStats(), { interval: 15000 });
+  const cardPoll = usePolling<{ agents: Record<string, AgentCard | { error: string }> }>(
+    () => api.discoverAgents(),
+    {
+      interval: 30000,
+    },
+  );
 
   const status = statusPoll.data;
   const stats = statsPoll.data;
   const uptime = useLiveUptime(stats?.uptime ?? null);
+  const cards = useMemo(
+    () => Object.values(cardPoll.data?.agents || {}) as Array<AgentCard | { error: string }>,
+    [cardPoll.data],
+  );
+  const cardCount = useMemo(
+    () => cards.filter((card) => card?.supportedInterfaces?.length > 0).length,
+    [cards],
+  );
 
   return (
     <div className="rounded-xl border border-border bg-surface/60">
@@ -38,8 +52,16 @@ export function StatusBar() {
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-3 text-xs text-text-secondary">
-          <span className="hidden sm:inline">Selection: <span className="text-foreground font-medium">auto</span></span>
+        <div className="flex items-center gap-2.5 text-xs text-text-secondary">
+          <span className="hidden rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider sm:inline">
+            A2A JSON-RPC
+          </span>
+          <span className="hidden rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider sm:inline">
+            {cardCount}/3 cards
+          </span>
+          <span className="hidden sm:inline">
+            Selection: <span className="text-foreground font-medium">auto</span>
+          </span>
           <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider">
             {provider}
           </span>
@@ -47,8 +69,9 @@ export function StatusBar() {
         </div>
       </button>
       {open && (
-        <div className="border-t border-border-light px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <Stat label="Total Tools" value="39" />
+        <div className="border-t border-border-light px-4 py-3 grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+          <Stat label="Protocol" value="A2A" />
+          <Stat label="Card Discovery" value={cardPoll.loading ? "checking" : `${cardCount}/3`} />
           <Stat
             label="Active Agents"
             value={stats ? `${stats.active_agents} / ${stats.total_agents}` : "—"}
@@ -56,7 +79,9 @@ export function StatusBar() {
           <Stat label="Uptime" value={uptime} />
           <Stat
             label="Avg Response"
-            value={stats?.avg_response_time != null ? `${stats.avg_response_time.toFixed(1)}s` : "—"}
+            value={
+              stats?.avg_response_time != null ? `${stats.avg_response_time.toFixed(1)}s` : "—"
+            }
           />
         </div>
       )}

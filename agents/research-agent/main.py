@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI, Request
 from shared.models import AgentRequest, AgentResponse
 from shared.mcp import handle_mcp_request, MCP_TOOLS
-from shared.a2a import handle_a2a_request, create_agent_card
+from shared.a2a_sdk import add_sdk_a2a_routes, agent_card_to_legacy_dict, build_agent_card
 from shared.config import RESEARCH_AGENT_URL
 from agent import run_agent
 
@@ -27,13 +27,22 @@ CAPABILITIES = {
     "tasks": TASKS,
 }
 
+AGENT_CARD = build_agent_card(
+    name=AGENT_NAME,
+    description=CAPABILITIES["description"],
+    base_url=RESEARCH_AGENT_URL,
+    tasks=TASKS,
+)
+
+add_sdk_a2a_routes(app, card=AGENT_CARD, run_fn=run_agent)
+
 @app.get("/capabilities")
 def capabilities():
     return CAPABILITIES
 
 @app.get("/.well-known/agent-card")
 def agent_card():
-    return create_agent_card(AGENT_NAME, CAPABILITIES["description"], RESEARCH_AGENT_URL, TASKS).model_dump()
+    return agent_card_to_legacy_dict(AGENT_CARD)
 
 @app.post("/research", response_model=AgentResponse)
 async def research(req: AgentRequest):
@@ -44,11 +53,6 @@ async def research(req: AgentRequest):
 async def mcp_endpoint(req: Request):
     body = await req.json()
     return handle_mcp_request(body)
-
-@app.post("/a2a")
-async def a2a_endpoint(req: Request):
-    body = await req.json()
-    return await handle_a2a_request(body, AGENT_NAME, TASKS, RESEARCH_AGENT_URL, run_agent)
 
 @app.get("/tools")
 def list_tools():

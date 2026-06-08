@@ -1,5 +1,5 @@
 import { type TaskEvent } from "@/lib/store";
-import { Check, Loader2, X, ChevronRight, Circle, Cpu } from "lucide-react";
+import { Check, Loader2, X, ChevronRight, Circle, Network } from "lucide-react";
 
 const stepMeta: Record<string, { label: string; group: "orchestrator" | "agents" | "output" }> = {
   submitted: { label: "Query submitted", group: "orchestrator" },
@@ -40,7 +40,13 @@ function deduplicateEvents(events: TaskEvent[]): TaskEvent[] {
 }
 
 function orderSteps(steps: string[]): string[] {
-  const order = ["submitted", "validating_query", "selecting_agents", "decomposing_task", "aggregating"];
+  const order = [
+    "submitted",
+    "validating_query",
+    "selecting_agents",
+    "decomposing_task",
+    "aggregating",
+  ];
   return steps.sort((a, b) => {
     const ai = order.indexOf(a);
     const bi = order.indexOf(b);
@@ -54,12 +60,16 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
   const unique = deduplicateEvents(events);
 
   const orchestratorSteps = orderSteps(
-    unique.filter((ev) => {
-      const meta = stepMeta[ev.step];
-      return meta?.group === "orchestrator" || ev.step === "submitted";
-    }).map((ev) => ev.step)
+    unique
+      .filter((ev) => {
+        const meta = stepMeta[ev.step];
+        return meta?.group === "orchestrator" || ev.step === "submitted";
+      })
+      .map((ev) => ev.step),
   );
-  const orchestratorEvents = orchestratorSteps.map((step) => unique.find((ev) => ev.step === step)!);
+  const orchestratorEvents = orchestratorSteps.map(
+    (step) => unique.find((ev) => ev.step === step)!,
+  );
 
   const agentSteps = unique
     .filter((ev) => stepMeta[ev.step]?.group === "agents")
@@ -78,8 +88,8 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
   return (
     <div className="mb-3 rounded-xl border border-border bg-surface/50 p-3 text-xs">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-text-muted uppercase tracking-wider">
-        <Cpu className="h-3 w-3" />
-        Agent Pipeline
+        <Network className="h-3 w-3" />
+        A2A Agent Pipeline
       </div>
 
       <div className="relative">
@@ -93,7 +103,9 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                 <div className="relative z-10 flex h-4 w-4 items-center justify-center rounded-full bg-surface">
                   <StatusIcon status={ev.status} />
                 </div>
-                <span className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}>
+                <span
+                  className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}
+                >
                   {meta?.label || ev.step}
                 </span>
                 {ev.status === "running" && (
@@ -111,7 +123,7 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
             <div className="ml-5 rounded-lg border border-border/50 bg-background/50 p-2 mt-1">
               <div className="flex items-center gap-1.5 mb-1.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">
                 <ChevronRight className="h-2.5 w-2.5" />
-                Invoking sub-agents
+                Invoking sub-agents over A2A
                 {activeAgentCount > 0 && (
                   <span className="ml-1 rounded-full bg-blue-500/10 px-1.5 py-0 text-blue-400">
                     {activeAgentCount} active
@@ -131,7 +143,9 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                       <div className="relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
                         <StatusIcon status={ev.status} />
                       </div>
-                      <span className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}>
+                      <span
+                        className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}
+                      >
                         {meta?.label || ev.step}
                       </span>
                       {ev.status === "running" && (
@@ -154,7 +168,9 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                   <div className="relative z-10 flex h-4 w-4 items-center justify-center rounded-full bg-surface">
                     <StatusIcon status={ev.status} />
                   </div>
-                  <span className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}>
+                  <span
+                    className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}
+                  >
                     {meta?.label || ev.step}
                   </span>
                 </div>

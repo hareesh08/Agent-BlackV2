@@ -11,7 +11,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Chat · Agent Black" },
-      { name: "description", content: "Conversational research interface across CV, NLP, and ML agents." },
+      {
+        name: "description",
+        content: "Conversational research interface across CV, NLP, and ML agents.",
+      },
     ],
   }),
   component: ChatPage,
@@ -44,39 +47,49 @@ function ChatPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    api.queryHistory().then((history) => {
-      const toStr = (v: any): string | null => {
-        if (v == null) return null;
-        if (typeof v === "string") return v;
-        try { return JSON.stringify(v, null, 2); } catch { return String(v); }
-      };
+    api
+      .queryHistory()
+      .then((history) => {
+        const toStr = (v: any): string | null => {
+          if (v == null) return null;
+          if (typeof v === "string") return v;
+          try {
+            return JSON.stringify(v, null, 2);
+          } catch {
+            return String(v);
+          }
+        };
         const synced = history.flatMap((h) => {
-        const userMsg: Message = {
-          id: `hist-user-${h.id}`,
-          role: "user",
-          content: h.query,
-          timestamp: h.created_at * 1000,
-        };
-        const sections = {
-          literature_review: toStr(h.report?.literature_review),
-          datasets: toStr(h.report?.datasets),
-          models: toStr(h.report?.models),
-          evaluation_plan: toStr(h.report?.evaluation_plan),
-          prototype_guidance: toStr(h.report?.prototype_guidance),
-        };
-        const assistantMsg: Message = {
-          id: `hist-asst-${h.id}`,
-          role: "assistant",
-          content: toStr(h.report?.content) || extractTextOnly(sections.literature_review || "") || "Research complete.",
-          timestamp: h.created_at * 1000,
-          sections,
-          agentsUsed: h.agents_used,
-          raw: { ...h.report, diagram: h.diagram },
-        };
-        return [userMsg, assistantMsg];
-      });
-      replaceAllMessages(synced);
-    }).catch(() => {});
+          const userMsg: Message = {
+            id: `hist-user-${h.id}`,
+            role: "user",
+            content: h.query,
+            timestamp: h.created_at * 1000,
+          };
+          const sections = {
+            literature_review: toStr(h.report?.literature_review),
+            datasets: toStr(h.report?.datasets),
+            models: toStr(h.report?.models),
+            evaluation_plan: toStr(h.report?.evaluation_plan),
+            prototype_guidance: toStr(h.report?.prototype_guidance),
+          };
+          const assistantMsg: Message = {
+            id: `hist-asst-${h.id}`,
+            role: "assistant",
+            content:
+              toStr(h.report?.content) ||
+              extractTextOnly(sections.literature_review || "") ||
+              "Research complete.",
+            timestamp: h.created_at * 1000,
+            sections,
+            agentsUsed: h.agents_used,
+            raw: { ...h.report, diagram: h.diagram },
+          };
+          return [userMsg, assistantMsg];
+        });
+        replaceAllMessages(synced);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -85,7 +98,11 @@ function ChatPage() {
 
   const handleClearChat = async () => {
     clearMessages();
-    try { await api.clearHistory(); } catch {}
+    try {
+      await api.clearHistory();
+    } catch {
+      return;
+    }
   };
 
   const handleNewChat = () => {
@@ -119,7 +136,8 @@ function ChatPage() {
       api.streamTask(
         task_id,
         (ev: TaskEvent) => {
-          const current = useAppStore.getState().messages.find(m => m.id === placeholderId)?.taskProgress || [];
+          const current =
+            useAppStore.getState().messages.find((m) => m.id === placeholderId)?.taskProgress || [];
           const merged = [...current.filter((e) => e.step !== ev.step), ev];
           updateMessage(placeholderId, { taskProgress: merged });
         },
@@ -127,12 +145,18 @@ function ChatPage() {
           const toStr = (v: any): string | null => {
             if (v == null) return null;
             if (typeof v === "string") return v;
-            try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+            try {
+              return JSON.stringify(v, null, 2);
+            } catch {
+              return String(v);
+            }
           };
           if (result.status === "error" || !result.report) {
             updateMessage(placeholderId, {
               pending: false,
-              content: result.error ? `Error: ${result.error}` : "Query failed. Please check that the LLM provider and agents are configured correctly.",
+              content: result.error
+                ? `Error: ${result.error}`
+                : "Query failed. Please check that the LLM provider and agents are configured correctly.",
               raw: result,
             });
           } else {
@@ -144,7 +168,10 @@ function ChatPage() {
               evaluation_plan: toStr(r?.evaluation_plan),
               prototype_guidance: toStr(r?.prototype_guidance),
             };
-            const content = toStr(r?.content) || extractTextOnly(sections.literature_review || "") || "Research complete. See sections below.";
+            const content =
+              toStr(r?.content) ||
+              extractTextOnly(sections.literature_review || "") ||
+              "Research complete. See sections below.";
             updateMessage(placeholderId, {
               pending: false,
               content,
@@ -227,8 +254,20 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
         What should the agents research today?
       </h1>
       <p className="mt-2 max-w-md text-xs text-text-secondary sm:text-sm">
-        The orchestrator routes your query to CV, NLP, and ML agents and returns a structured research brief.
+        The orchestrator sends your query through the standard A2A protocol, routes it across CV,
+        NLP, and ML agents, and returns a structured research brief.
       </p>
+      <div className="mt-4 flex items-center gap-2 text-[11px] text-text-muted">
+        <span className="rounded-full border border-border bg-background px-2.5 py-1">
+          A2A JSON-RPC
+        </span>
+        <span className="rounded-full border border-border bg-background px-2.5 py-1">
+          Agent Card discovery
+        </span>
+        <span className="rounded-full border border-border bg-background px-2.5 py-1">
+          Structured report
+        </span>
+      </div>
       <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
         {samples.map((s) => (
           <button

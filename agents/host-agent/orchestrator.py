@@ -5,6 +5,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import httpx
+from shared.a2a_sdk import send_text_task
 from shared.llm import async_call_llm, extract_json
 from shared.config import AGENT_URLS
 
@@ -144,36 +145,22 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         progress_callback("decomposing_task", "complete", f"Decomposition failed, using original query: {e}")
 
     agent_endpoints = {
-        "research": ("research_task", f"{AGENT_URLS['research']}/research"),
-        "solution": ("solution_task", f"{AGENT_URLS['solution']}/solution"),
-        "experiment": ("experiment_task", f"{AGENT_URLS['experiment']}/experiment"),
+        "research": ("research_task", AGENT_URLS["research"]),
+        "solution": ("solution_task", AGENT_URLS["solution"]),
+        "experiment": ("experiment_task", AGENT_URLS["experiment"]),
     }
 
     # ── Step 3: Dispatch to sub-agents concurrently ────────────────────────────
-    async def _call_agent(client: httpx.AsyncClient, agent_name: str):
-        task_key, url = agent_endpoints[agent_name]
-        payload = {"query": tasks.get(task_key, query)}
+    async def _call_agent(_client: httpx.AsyncClient, agent_name: str):
+        task_key, base_url = agent_endpoints[agent_name]
+        sub_query = tasks.get(task_key, query)
         progress_callback(agent_name, "running", f"Calling {agent_name} agent...")
         try:
-            r = await client.post(url, json=payload, timeout=120)
-            r.raise_for_status()
-            try:
-                result = r.json()
-            except Exception:
-                result = {"raw_response": r.text[:2000]}
+            result = await send_text_task(base_url, sub_query)
             progress_callback(agent_name, "complete", f"{agent_name} agent completed")
             return agent_name, result
-        except httpx.HTTPStatusError as e:
-            error_detail = ""
-            try:
-                error_detail = e.response.text[:500]
-            except Exception:
-                pass
-            msg = f"{agent_name} agent returned HTTP {e.response.status_code}: {error_detail}"
-            progress_callback(agent_name, "error", msg)
-            return agent_name, {"error": msg}
         except Exception as e:
-            msg = f"{agent_name} agent connection failed: {e}"
+            msg = f"{agent_name} agent A2A request failed: {e}"
             progress_callback(agent_name, "error", msg)
             return agent_name, {"error": msg}
 

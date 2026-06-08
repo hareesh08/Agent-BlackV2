@@ -82,6 +82,41 @@ export interface SettingsResponse {
   agent_urls: Record<string, string>;
 }
 
+export interface AgentCardInterface {
+  url: string;
+  protocolBinding: string;
+  protocolVersion?: string;
+}
+
+export interface AgentSkill {
+  id?: string;
+  name?: string;
+  description?: string;
+  tags?: string[];
+  examples?: string[];
+  inputModes?: string[];
+  outputModes?: string[];
+}
+
+export interface AgentCard {
+  name: string;
+  description?: string;
+  version?: string;
+  provider?: string;
+  supportedInterfaces?: AgentCardInterface[];
+  capabilities?: Record<string, any>;
+  defaultInputModes?: string[];
+  defaultOutputModes?: string[];
+  skills?: AgentSkill[];
+  icon_url?: string;
+  documentation_url?: string;
+}
+
+export interface AgentCardResponse {
+  card: AgentCard;
+  health: string;
+}
+
 export interface DiscoAgent {
   name: string;
   url: string;
@@ -176,9 +211,10 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  discoverAgents: () => request<{ agents: Record<string, any> }>("/agents/discover"),
+  discoverAgents: () =>
+    request<{ agents: Record<string, AgentCard | { error: string }> }>("/agents/discover"),
   getDiscoveredAgents: () => request<{ agents: DiscoAgent[] }>("/agents/discovered"),
-  getAgentCard: (name: string) => request<any>(`/agents/${name}/card`),
+  getAgentCard: (key: string) => request<AgentCardResponse>(`/agents/${key}/card`),
   getAgentLogs: (name: string) =>
     request<{ name: string; stdout: string; stderr: string }>(`/agents/${name}/logs`),
 

@@ -8,3 +8,5 @@ requests
 openai
 anthropic
 python-dotenv
+a2a-sdk==1.1.0
+sse-starlette
