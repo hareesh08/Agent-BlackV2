@@ -4,6 +4,12 @@ import { persist } from "zustand/middleware";
 export type AgentKey = "research" | "solution" | "experiment";
 
 export interface ReportSections {
+  error?: string | null;
+  message?: string | null;
+  reason?: string | null;
+  suggestion?: string | null;
+  supported_topics?: unknown;
+  validation?: unknown;
   literature_review?: string | null;
   datasets?: string | null;
   models?: string | null;

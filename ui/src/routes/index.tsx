@@ -1,13 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { InputArea } from "@/components/chat/InputArea";
 import { StatusBar } from "@/components/chat/StatusBar";
 import { useAppStore, type Message, type TaskEvent } from "@/lib/store";
-import { api } from "@/lib/api";
+import { api, type HistoryItem } from "@/lib/api";
 import { Trash2, MessageSquarePlus } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    new: search.new === "1" ? "1" : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Chat · Agent Black" },
@@ -19,6 +22,8 @@ export const Route = createFileRoute("/")({
   }),
   component: ChatPage,
 });
+
+const FORCE_NEW_CHAT_KEY = "agent-black-force-new-chat";
 
 /** Strip trailing JSON objects/arrays/code-fences from a text string */
 function extractTextOnly(text: string): string {
@@ -37,7 +42,88 @@ function isJsonLike(s: string): boolean {
   return (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"));
 }
 
+function toDisplayString(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v;
+  try {
+    return JSON.stringify(v, null, 2);
+  } catch {
+    return String(v);
+  }
+}
+
+function buildSectionsFromReport(report: Record<string, any> | undefined) {
+  if (!report) return undefined;
+
+  if (report.error === "not_research_query") {
+    return {
+      error: String(report.error),
+      message: toDisplayString(report.message),
+      reason: toDisplayString(report.reason),
+      suggestion: toDisplayString(report.suggestion),
+      supported_topics: report.supported_topics,
+      validation: report.validation,
+    };
+  }
+
+  return {
+    literature_review: toDisplayString(report.literature_review),
+    datasets: toDisplayString(report.datasets),
+    models: toDisplayString(report.models),
+    evaluation_plan: toDisplayString(report.evaluation_plan),
+    prototype_guidance: toDisplayString(report.prototype_guidance),
+  };
+}
+
+function historyItemToMessages(h: {
+  id: number;
+  query: string;
+  report: {
+    content?: unknown;
+    literature_review?: unknown;
+    datasets?: unknown;
+    models?: unknown;
+    evaluation_plan?: unknown;
+    prototype_guidance?: unknown;
+  };
+  diagram?: string;
+  agents_used: string[];
+  created_at: number;
+}): Message[] {
+  const userMsg: Message = {
+    id: `hist-user-${h.id}`,
+    role: "user",
+    content: h.query,
+    timestamp: h.created_at * 1000,
+  };
+  const sections = {
+    ...buildSectionsFromReport(h.report),
+  };
+  const assistantMsg: Message = {
+    id: `hist-asst-${h.id}`,
+    role: "assistant",
+    content:
+      toDisplayString(h.report?.content)
+      || (h.report?.error === "not_research_query"
+        ? toDisplayString(h.report?.message)
+        : null)
+      || "Research complete. See report below.",
+    timestamp: h.created_at * 1000,
+    sections,
+    agentsUsed: h.agents_used,
+    raw: { ...h.report, diagram: h.diagram },
+  };
+  return [userMsg, assistantMsg];
+}
+
+function latestHistoryPair(history: HistoryItem[]): Message[] {
+  const latest = history.at(-1);
+  return latest ? historyItemToMessages(latest) : [];
+}
+
 function ChatPage() {
+  const navigate = useNavigate({ from: "/" });
+  const search = Route.useSearch();
   const messages = useAppStore((s) => s.messages);
   const addMessage = useAppStore((s) => s.addMessage);
   const updateMessage = useAppStore((s) => s.updateMessage);
@@ -45,52 +131,35 @@ function ChatPage() {
   const clearMessages = useAppStore((s) => s.clearMessages);
   const endRef = useRef<HTMLDivElement>(null);
   const [sending, setSending] = useState(false);
+  const [chatLocked, setChatLocked] = useState(false);
 
   useEffect(() => {
+    if (search.new === "1") {
+      window.sessionStorage.setItem(FORCE_NEW_CHAT_KEY, "1");
+      clearMessages();
+      replaceAllMessages([]);
+      setChatLocked(false);
+      void navigate({ to: "/", search: {}, replace: true });
+      return;
+    }
+
+    if (window.sessionStorage.getItem(FORCE_NEW_CHAT_KEY) === "1") {
+      window.sessionStorage.removeItem(FORCE_NEW_CHAT_KEY);
+      clearMessages();
+      replaceAllMessages([]);
+      setChatLocked(false);
+      return;
+    }
+
     api
       .queryHistory()
       .then((history) => {
-        const toStr = (v: any): string | null => {
-          if (v == null) return null;
-          if (typeof v === "string") return v;
-          try {
-            return JSON.stringify(v, null, 2);
-          } catch {
-            return String(v);
-          }
-        };
-        const synced = history.flatMap((h) => {
-          const userMsg: Message = {
-            id: `hist-user-${h.id}`,
-            role: "user",
-            content: h.query,
-            timestamp: h.created_at * 1000,
-          };
-          const sections = {
-            literature_review: toStr(h.report?.literature_review),
-            datasets: toStr(h.report?.datasets),
-            models: toStr(h.report?.models),
-            evaluation_plan: toStr(h.report?.evaluation_plan),
-            prototype_guidance: toStr(h.report?.prototype_guidance),
-          };
-          const assistantMsg: Message = {
-            id: `hist-asst-${h.id}`,
-            role: "assistant",
-            content:
-              toStr(h.report?.content) ||
-              extractTextOnly(sections.literature_review || "") ||
-              "Research complete.",
-            timestamp: h.created_at * 1000,
-            sections,
-            agentsUsed: h.agents_used,
-            raw: { ...h.report, diagram: h.diagram },
-          };
-          return [userMsg, assistantMsg];
-        });
-        replaceAllMessages(synced);
+        const latestMessages = latestHistoryPair(history);
+        replaceAllMessages(latestMessages);
+        setChatLocked(latestMessages.length > 0);
       })
       .catch(() => undefined);
-  }, []);
+  }, [clearMessages, navigate, replaceAllMessages, search.new]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -98,6 +167,7 @@ function ChatPage() {
 
   const handleClearChat = async () => {
     clearMessages();
+    setChatLocked(false);
     try {
       await api.clearHistory();
     } catch {
@@ -106,12 +176,17 @@ function ChatPage() {
   };
 
   const handleNewChat = () => {
+    window.sessionStorage.setItem(FORCE_NEW_CHAT_KEY, "1");
     clearMessages();
+    replaceAllMessages([]);
+    setChatLocked(false);
   };
 
   const handleSubmit = async (text: string) => {
-    if (sending) return;
+    if (sending || chatLocked) return;
     setSending(true);
+    clearMessages();
+    setChatLocked(false);
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -142,15 +217,6 @@ function ChatPage() {
           updateMessage(placeholderId, { taskProgress: merged });
         },
         (result) => {
-          const toStr = (v: any): string | null => {
-            if (v == null) return null;
-            if (typeof v === "string") return v;
-            try {
-              return JSON.stringify(v, null, 2);
-            } catch {
-              return String(v);
-            }
-          };
           if (result.status === "error" || !result.report) {
             updateMessage(placeholderId, {
               pending: false,
@@ -159,19 +225,14 @@ function ChatPage() {
                 : "Query failed. Please check that the LLM provider and agents are configured correctly.",
               raw: result,
             });
+            setChatLocked(true);
           } else {
             const r = result.report;
-            const sections = {
-              literature_review: toStr(r?.literature_review),
-              datasets: toStr(r?.datasets),
-              models: toStr(r?.models),
-              evaluation_plan: toStr(r?.evaluation_plan),
-              prototype_guidance: toStr(r?.prototype_guidance),
-            };
+            const sections = buildSectionsFromReport(r);
             const content =
-              toStr(r?.content) ||
-              extractTextOnly(sections.literature_review || "") ||
-              "Research complete. See sections below.";
+              toDisplayString(r?.content)
+              || (r?.error === "not_research_query" ? toDisplayString(r?.message) : null)
+              || "Research complete. See report below.";
             updateMessage(placeholderId, {
               pending: false,
               content,
@@ -179,6 +240,7 @@ function ChatPage() {
               agentsUsed: result.agents_used?.length ? result.agents_used : undefined,
               raw: result,
             });
+            setChatLocked(true);
           }
         },
         (err) => {
@@ -186,13 +248,16 @@ function ChatPage() {
             pending: false,
             content: `Error: ${err.message}`,
           });
+          setChatLocked(true);
         },
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       updateMessage(placeholderId, {
         pending: false,
-        content: `Error: ${err.message}. Check that agents are running.`,
+        content: `Error: ${message}. Check that agents are running.`,
       });
+      setChatLocked(true);
     } finally {
       setSending(false);
     }
@@ -233,7 +298,24 @@ function ChatPage() {
           <div ref={endRef} />
         </div>
       </div>
-      <InputArea onSubmit={handleSubmit} disabled={sending} />
+      {chatLocked ? (
+        <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-4 pb-4">
+          <div className="mx-auto flex max-w-[860px] items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm sm:rounded-2xl">
+            <span className="text-text-secondary">
+              Research completed. Start a new chat to ask another query.
+            </span>
+            <button
+              onClick={handleNewChat}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-2 text-xs text-background hover:opacity-90"
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              New Chat
+            </button>
+          </div>
+        </div>
+      ) : (
+        <InputArea onSubmit={handleSubmit} disabled={sending} />
+      )}
     </div>
   );
 }

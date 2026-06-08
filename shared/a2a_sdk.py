@@ -44,7 +44,7 @@ def build_agent_card(
     description: str,
     base_url: str,
     tasks: list[str],
-    streaming: bool = False,
+    streaming: bool = True,
 ) -> AgentCard:
     skills = [
         AgentSkill(
@@ -192,7 +192,7 @@ async def send_text_task(base_url: str, query: str) -> dict[str, Any]:
         card = await resolver.get_agent_card()
         client = await create_client(
             agent=card,
-            client_config=ClientConfig(streaming=False, httpx_client=httpx_client),
+            client_config=ClientConfig(streaming=True, httpx_client=httpx_client),
         )
         try:
             request = SendMessageRequest(

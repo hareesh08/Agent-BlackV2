@@ -115,6 +115,12 @@ export interface AgentCard {
 export interface AgentCardResponse {
   card: AgentCard;
   health: string;
+  mcp_tools?: Array<{
+    name: string;
+    description?: string;
+    inputSchema?: Record<string, any>;
+  }>;
+  communication_methods?: Record<string, any>;
 }
 
 export interface DiscoAgent {

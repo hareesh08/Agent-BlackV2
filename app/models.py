@@ -77,3 +77,5 @@ class DiagramResponse(BaseModel):
 class AgentCardResponse(BaseModel):
     card: dict
     health: str
+    mcp_tools: list[dict[str, Any]] = []
+    communication_methods: dict[str, Any] = {}

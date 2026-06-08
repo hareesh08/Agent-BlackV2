@@ -145,7 +145,7 @@ function DiagramPage() {
             Generating diagram...
           </div>
         ) : diagram ? (
-          <div className="p-6 w-full overflow-x-auto overflow-y-auto">
+          <div className="h-full w-full p-6">
             <MermaidDiagram code={diagram} zoom={zoom} onZoomChange={setZoom} />
           </div>
         ) : (

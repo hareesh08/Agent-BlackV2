@@ -19,54 +19,6 @@ export const Route = createFileRoute("/agents")({
   component: AgentsPage,
 });
 
-const DEFAULT_TOOLS: Record<string, string[]> = {
-  "research-agent": [
-    "search_papers",
-    "summarize_paper",
-    "analyze_gaps",
-    "find_cv_datasets",
-    "recommend_cv_models",
-    "citation_generator",
-    "benchmark_search",
-    "eval_metric_advisor",
-    "architecture_comparison",
-    "synthetic_data_strategy",
-    "solution_recommendation",
-    "prototype_guidance",
-    "experiment_planner",
-  ],
-  "solution-agent": [
-    "search_papers",
-    "summarize_paper",
-    "find_nlp_datasets",
-    "rag_design",
-    "llm_benchmark",
-    "citation_generator",
-    "prompt_optimizer",
-    "information_extraction",
-    "eval_metric_advisor",
-    "analyze_gaps",
-    "solution_recommendation",
-    "prototype_guidance",
-    "experiment_planner",
-  ],
-  "experiment-agent": [
-    "search_papers",
-    "plan_experiment",
-    "eval_metric_advisor",
-    "hyperparameter_advice",
-    "recommend_models",
-    "benchmark_search",
-    "feature_engineering_advisor",
-    "model_explainability_advisor",
-    "time_series_strategy",
-    "analyze_gaps",
-    "solution_recommendation",
-    "prototype_guidance",
-    "summarize_paper",
-  ],
-};
-
 const AGENT_KEYS: Record<string, string> = {
   "research-agent": "research",
   "solution-agent": "solution",
@@ -110,6 +62,173 @@ function skillLabel(skill: AgentSkill) {
   return skill.id || skill.name || "Skill";
 }
 
+function formatLabel(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function renderValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value == null) return "-";
+  return JSON.stringify(value);
+}
+
+function DataList({ data }: { data: Record<string, unknown> }) {
+  const entries = Object.entries(data).filter(([, value]) => value != null && value !== "");
+
+  if (entries.length === 0) {
+    return <p className="text-xs text-text-muted italic">No data available</p>;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {entries.map(([key, value]) => (
+        <div key={key} className="rounded-lg border border-border bg-background/40 p-2.5">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            {formatLabel(key)}
+          </div>
+          {Array.isArray(value) ? (
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {value.map((item, index) => (
+                <span
+                  key={`${key}-${index}`}
+                  className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] font-mono text-text-secondary"
+                >
+                  {renderValue(item)}
+                </span>
+              ))}
+            </div>
+          ) : typeof value === "object" && value !== null ? (
+            <div className="mt-1 grid gap-1">
+              {Object.entries(value).map(([nestedKey, nestedValue]) => (
+                <div key={nestedKey} className="text-xs text-text-secondary leading-relaxed">
+                  <span className="font-medium text-foreground">{formatLabel(nestedKey)}:</span>{" "}
+                  {renderValue(nestedValue)}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-text-secondary leading-relaxed">{renderValue(value)}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AgentCardDetails({ card }: { card: AgentCard | undefined }) {
+  if (!card) {
+    return <p className="text-xs text-text-muted italic">Card unavailable</p>;
+  }
+
+  const summary = {
+    name: card.name,
+    version: card.version,
+    provider: card.provider,
+    documentation_url: card.documentation_url,
+    icon_url: card.icon_url,
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <DataList data={summary} />
+
+      {card.supportedInterfaces?.length ? (
+        <div>
+          <div className="mb-1.5 text-[10px] uppercase tracking-wider text-text-muted">
+            Supported Interfaces
+          </div>
+          <div className="grid gap-2">
+            {card.supportedInterfaces.map((iface, index) => (
+              <div key={`${iface.url}-${index}`} className="rounded-lg border border-border bg-background/40 p-2.5">
+                <div className="text-xs font-medium text-foreground">
+                  {iface.protocolBinding}
+                  {iface.protocolVersion ? ` ${iface.protocolVersion}` : ""}
+                </div>
+                <div className="mt-1 break-all text-[11px] font-mono text-text-secondary">{iface.url}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {card.capabilities ? (
+        <div>
+          <div className="mb-1.5 text-[10px] uppercase tracking-wider text-text-muted">Capabilities</div>
+          <DataList data={card.capabilities} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolsDetails({
+  tools,
+}: {
+  tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }> | undefined;
+}) {
+  if (!tools?.length) {
+    return <p className="text-xs text-text-muted italic">No MCP tools exposed</p>;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {tools.map((tool) => (
+        <div key={tool.name} className="rounded-lg border border-border bg-background/40 p-2.5">
+          <div className="text-xs font-medium font-mono text-foreground">{tool.name}</div>
+          {tool.description ? (
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">{tool.description}</p>
+          ) : null}
+          {tool.inputSchema ? <DataList data={tool.inputSchema} /> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CommunicationDetails({ methods }: { methods: Record<string, unknown> | undefined }) {
+  if (!methods || Object.keys(methods).length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-1.5 text-[10px] uppercase tracking-wider text-text-muted">
+        Communication Methods
+      </div>
+      <DataList data={methods} />
+    </div>
+  );
+}
+
+function LogsPanel({ stdout, stderr, fallback }: { stdout?: string; stderr?: string; fallback: string }) {
+  const hasStdout = Boolean(stdout?.trim());
+  const hasStderr = Boolean(stderr?.trim());
+
+  if (!hasStdout && !hasStderr) {
+    return <p className="text-xs text-text-muted italic">{fallback}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {hasStdout ? (
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-text-muted">Stdout</div>
+          <pre className="max-h-40 overflow-y-auto rounded-lg border border-border bg-background/50 p-2 text-[11px] font-mono leading-relaxed text-text-secondary whitespace-pre-wrap break-words">
+            {stdout}
+          </pre>
+        </div>
+      ) : null}
+      {hasStderr ? (
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-red-400">Stderr</div>
+          <pre className="max-h-40 overflow-y-auto rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-[11px] font-mono leading-relaxed text-red-300 whitespace-pre-wrap break-words">
+            {stderr}
+          </pre>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AgentsPage() {
   const [logs, setLogs] = useState<Record<string, { stdout: string; stderr: string }>>({});
   const [cards, setCards] = useState<Record<string, AgentCardResponse>>({});
@@ -121,11 +240,7 @@ function AgentsPage() {
   });
 
   const agents = useMemo(
-    () =>
-      (agentsPoll.data?.agents ?? []).map((a) => ({
-        ...a,
-        tools: DEFAULT_TOOLS[a.name] || [],
-      })),
+    () => agentsPoll.data?.agents ?? [],
     [agentsPoll.data],
   );
 
@@ -241,6 +356,8 @@ function AgentsPage() {
             const outputModes = card?.defaultOutputModes || [];
             const endpoint = cardUrl(a, card);
             const protocol = protocolLabel(card);
+            const mcpTools = cards[a.name]?.mcp_tools || [];
+            const communicationMethods = cards[a.name]?.communication_methods;
 
             return (
               <div
@@ -327,34 +444,33 @@ function AgentsPage() {
 
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">
-                    {a.tools?.length || 0} tools
+                    {mcpTools.length} tools
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {a.tools?.slice(0, 6).map((t: string) => (
+                    {mcpTools.slice(0, 6).map((tool) => (
                       <span
-                        key={t}
+                        key={tool.name}
                         className="rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-mono"
                       >
-                        {t}
+                        {tool.name}
                       </span>
                     ))}
-                    {(a.tools?.length || 0) > 6 && (
+                    {mcpTools.length > 6 && (
                       <span className="rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-mono text-text-muted">
-                        +{a.tools.length - 6}
+                        +{mcpTools.length - 6}
                       </span>
                     )}
                   </div>
                 </div>
 
                 <Collapsible title="A2A Card" badge="card">
-                  <pre className="text-[11px] font-mono text-text-secondary overflow-x-auto">
-                    {JSON.stringify(card || { error: "Card unavailable" }, null, 2)}
-                  </pre>
+                  <div className="flex flex-col gap-3">
+                    <AgentCardDetails card={card} />
+                    <CommunicationDetails methods={communicationMethods} />
+                  </div>
                 </Collapsible>
                 <Collapsible title="MCP Tools" badge="JSON">
-                  <pre className="text-[11px] font-mono text-text-secondary overflow-x-auto">
-                    {JSON.stringify({ tools: a.tools || [] }, null, 2)}
-                  </pre>
+                  <ToolsDetails tools={mcpTools} />
                 </Collapsible>
                 <Collapsible title="Logs" badge="tail">
                   <div className="flex flex-col gap-2">
@@ -364,9 +480,11 @@ function AgentsPage() {
                     >
                       Refresh logs
                     </button>
-                    <pre className="text-[11px] font-mono text-text-secondary leading-relaxed max-h-40 overflow-y-auto">
-                      {logs[a.name]?.stdout || `[INFO] Fetch logs to view output for ${a.name}`}
-                    </pre>
+                    <LogsPanel
+                      stdout={logs[a.name]?.stdout}
+                      stderr={logs[a.name]?.stderr}
+                      fallback={`Fetch logs to view output for ${a.name}`}
+                    />
                   </div>
                 </Collapsible>
               </div>

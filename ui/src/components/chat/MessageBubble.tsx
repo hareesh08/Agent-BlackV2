@@ -289,7 +289,7 @@ function DiagramView({ message }: { message: Message }) {
         fullscreen ? "fixed inset-0 z-50 rounded-none border-0 bg-background p-4" : "p-4"
       }`}
     >
-      <div className="overflow-x-auto overflow-y-auto">
+      <div className="w-full">
         <MermaidDiagram code={diagram} zoom={zoom} onZoomChange={setZoom} />
       </div>
       <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-sm">

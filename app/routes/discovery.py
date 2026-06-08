@@ -60,12 +60,44 @@ async def get_agent_card(agent_name: str):
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get(f"{url}{A2A_CARD_PATH}")
             r2 = await client.get(f"{url}/health")
+            r3 = await client.get(f"{url}/tools")
+            r4 = await client.get(f"{url}/capabilities")
+
+            card = r.json() if r.status_code == 200 else {"error": f"HTTP {r.status_code}"}
+            mcp_payload = r3.json() if r3.status_code == 200 else {"tools": {}}
+            capabilities_payload = r4.json() if r4.status_code == 200 else {}
+
+            raw_tools = mcp_payload.get("tools", {}) if isinstance(mcp_payload, dict) else {}
+            mcp_tools = []
+            if isinstance(raw_tools, dict):
+                mcp_tools = [tool for tool in raw_tools.values() if isinstance(tool, dict)]
+            elif isinstance(raw_tools, list):
+                mcp_tools = [tool for tool in raw_tools if isinstance(tool, dict)]
+
+            card_capabilities = card.get("capabilities", {}) if isinstance(card, dict) else {}
+            communication_methods = {
+                "a2a_jsonrpc": bool(isinstance(card, dict) and card.get("supportedInterfaces")),
+                "streaming": bool(isinstance(card_capabilities, dict) and card_capabilities.get("streaming")),
+                "polling": True,
+                "health": r2.status_code == 200,
+                "legacy_card": True,
+                "mcp": r3.status_code == 200,
+                "rest": bool(capabilities_payload.get("port")) if isinstance(capabilities_payload, dict) else True,
+            }
+
             return AgentCardResponse(
-                card=r.json() if r.status_code == 200 else {"error": f"HTTP {r.status_code}"},
+                card=card,
                 health=r2.json().get("status", "unknown") if r2.status_code == 200 else "stopped",
+                mcp_tools=mcp_tools,
+                communication_methods=communication_methods,
             )
     except Exception as e:
-        return AgentCardResponse(card={"error": str(e)}, health="stopped")
+        return AgentCardResponse(
+            card={"error": str(e)},
+            health="stopped",
+            mcp_tools=[],
+            communication_methods={},
+        )
 
 
 @router.get("/agents/discovered")
