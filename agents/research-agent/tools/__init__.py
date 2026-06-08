@@ -20,6 +20,7 @@ TOOLS = {
     "recommend_cv_models": recommend_cv_models,
     "citation_generator": citation_generator,
     "benchmark_search": benchmark_search_cv,
+    "evaluation_metric_tool": eval_metric_advisor_cv,
     "eval_metric_advisor": eval_metric_advisor_cv,
     "architecture_comparison": architecture_comparison,
     "synthetic_data_strategy": synthetic_data_strategy,

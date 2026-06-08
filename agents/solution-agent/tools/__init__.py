@@ -21,6 +21,7 @@ TOOLS = {
     "citation_generator": citation_generator,
     "prompt_optimizer": prompt_optimizer,
     "information_extraction": information_extraction,
+    "evaluation_metric_tool": eval_metric_advisor_nlp,
     "eval_metric_advisor": eval_metric_advisor_nlp,
     "analyze_gaps": analyze_gaps,
     "solution_recommendation": solution_recommendation,
