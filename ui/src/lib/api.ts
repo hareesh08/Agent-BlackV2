@@ -75,6 +75,7 @@ export interface QueryResponse {
 
 export interface HistoryItem {
   id: number;
+  uuid: string;
   query: string;
   report: Record<string, any>;
   diagram?: string;
@@ -232,6 +233,8 @@ export const api = {
     }),
 
   queryHistory: () => request<HistoryItem[]>("/query/history"),
+  getQueryById: (id: number) => request<HistoryItem>(`/query/${id}`),
+  getQueryByUuid: (uuid: string) => request<HistoryItem>(`/query/uuid/${uuid}`),
   clearHistory: () => request<{ message: string }>("/query/history", { method: "DELETE" }),
 
   getSettings: () => request<SettingsResponse>("/settings"),

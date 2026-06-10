@@ -66,62 +66,70 @@ def extract_json(raw: str) -> dict:
     raise ValueError(f"Could not extract valid JSON from LLM response: {raw[:200]}")
 
 
-def _call_gemini(system_prompt: str, user_prompt: str, cfg: dict) -> str:
+def _call_gemini(system_prompt: str, user_prompt: str, cfg: dict, json_mode: bool = False) -> str:
     import google.generativeai as genai
     client_opts = {"api_key": cfg["gemini_api_key"]}
     if cfg["gemini_base_url"]:
         client_opts["client_options"] = {"api_endpoint": cfg["gemini_base_url"]}
     genai.configure(**client_opts)
     full_prompt = f"{system_prompt}\n\n{user_prompt}"
+    if json_mode:
+        full_prompt += "\n\nReturn ONLY a single valid JSON object. No prose, no markdown fences."
     response = genai.GenerativeModel(cfg["gemini_model"]).generate_content(full_prompt)
     return response.text
 
 
-def _call_openai(system_prompt: str, user_prompt: str, cfg: dict) -> str:
+def _call_openai(system_prompt: str, user_prompt: str, cfg: dict, json_mode: bool = False) -> str:
     from openai import OpenAI
     client = OpenAI(api_key=cfg["openai_api_key"], base_url=cfg["openai_base_url"])
-    response = client.chat.completions.create(
-        model=cfg["openai_model"],
-        messages=[
+    kwargs: dict = {
+        "model": cfg["openai_model"],
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-    )
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content
 
 
-def _call_anthropic(system_prompt: str, user_prompt: str, cfg: dict) -> str:
-    import anthropic
+def _call_anthropic(system_prompt: str, user_prompt: str, cfg: dict, json_mode: bool = False) -> str:
+    from anthropic import Anthropic
     client_kwargs = {"api_key": cfg["anthropic_api_key"]}
     if cfg["anthropic_base_url"]:
         client_kwargs["base_url"] = cfg["anthropic_base_url"]
     client = anthropic.Anthropic(**client_kwargs)
+    user_content = user_prompt
+    if json_mode:
+        user_content += "\n\nReturn ONLY a single valid JSON object. No prose, no markdown fences."
     response = client.messages.create(
         model=cfg["anthropic_model"],
         max_tokens=4096,
         system=system_prompt,
-        messages=[{"role": "user", "content": user_prompt}],
+        messages=[{"role": "user", "content": user_content}],
     )
     return response.content[0].text
 
 
-def _call_llm_once(system_prompt: str, user_prompt: str) -> str:
+def _call_llm_once(system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
     cfg = _get_llm_config()
     provider = cfg["provider"]
     if provider == "gemini":
-        return _call_gemini(system_prompt, user_prompt, cfg)
+        return _call_gemini(system_prompt, user_prompt, cfg, json_mode=json_mode)
     if provider == "openai":
-        return _call_openai(system_prompt, user_prompt, cfg)
+        return _call_openai(system_prompt, user_prompt, cfg, json_mode=json_mode)
     if provider == "anthropic":
-        return _call_anthropic(system_prompt, user_prompt, cfg)
+        return _call_anthropic(system_prompt, user_prompt, cfg, json_mode=json_mode)
     raise ValueError(f"Unsupported LLM_PROVIDER: {provider}. Choose from: gemini, openai, anthropic")
 
 
-def call_llm(system_prompt: str, user_prompt: str) -> str:
+def call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
     last_error = None
     for attempt in range(LLM_MAX_RETRIES):
         try:
-            return _call_llm_once(system_prompt, user_prompt)
+            return _call_llm_once(system_prompt, user_prompt, json_mode=json_mode)
         except Exception as e:
             last_error = e
             logger.warning(f"LLM call attempt {attempt + 1}/{LLM_MAX_RETRIES} failed: {e}")
@@ -130,6 +138,6 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
     raise RuntimeError(f"LLM call failed after {LLM_MAX_RETRIES} attempts: {last_error}")
 
 
-async def async_call_llm(system_prompt: str, user_prompt: str) -> str:
+async def async_call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
     """Async wrapper around call_llm that runs in a thread to avoid blocking the event loop."""
-    return await asyncio.to_thread(call_llm, system_prompt, user_prompt)
+    return await asyncio.to_thread(call_llm, system_prompt, user_prompt, json_mode=json_mode)

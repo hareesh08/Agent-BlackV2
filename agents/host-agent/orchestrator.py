@@ -1,5 +1,6 @@
 import json
 import asyncio
+import logging
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -9,8 +10,11 @@ from shared.a2a_sdk import send_text_task
 from shared.llm import async_call_llm, extract_json
 from shared.config import AGENT_URLS
 
+logger = logging.getLogger(__name__)
+
 DECOMPOSE_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "orchestrator.txt")
 SELECTION_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "selection.txt")
+AGGREGATOR_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "aggregator.txt")
 
 RESEARCH_DOMAINS = [
     "computer vision", "image classification", "object detection", "segmentation",
@@ -193,6 +197,7 @@ async def orchestrate(query: str, progress_callback=None) -> dict:
         progress_callback("orchestrator", "error", f"Orchestration failed: {e}")
         return {
             "error": str(e),
+            "tech_stack": [],
             "literature_review": "",
             "datasets": "",
             "models": "",
@@ -281,32 +286,97 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
     # ── Step 4: Aggregate results ──────────────────────────────────────────────
     progress_callback("aggregating", "running", "Aggregating results into final report...")
     try:
-        agg_prompt = f"""
-Combine these agent responses into a single research report.
-Agents used: {json.dumps(selected_agents)}
-Research: {json.dumps(responses.get('research', {'result': {}}))}
-Solution: {json.dumps(responses.get('solution', {'result': {}}))}
-Experiment: {json.dumps(responses.get('experiment', {'result': {}}))}
-Return ONLY valid JSON with keys: literature_review, datasets, models, evaluation_plan, prototype_guidance
-"""
-        final_raw = await async_call_llm(
-            system_prompt="You are a research report writer that synthesizes multi-agent outputs.",
-            user_prompt=agg_prompt
+        agg_template = _load_prompt_safe(AGGREGATOR_PROMPT_PATH)
+        agg_user = agg_template.format(
+            agents=json.dumps(selected_agents),
+            research=json.dumps(responses.get("research", {"result": {}}))[:6000],
+            solution=json.dumps(responses.get("solution", {"result": {}}))[:6000],
+            experiment=json.dumps(responses.get("experiment", {"result": {}}))[:6000],
         )
+        # Try JSON mode first for stricter output; fall back to plain text on
+        # provider errors (some OpenAI-compatible endpoints reject
+        # response_format=json_object).
+        final_raw = None
+        try:
+            final_raw = await async_call_llm(
+                system_prompt="You are a senior research synthesiser. Output ONLY valid JSON.",
+                user_prompt=agg_user,
+                json_mode=True,
+            )
+        except Exception as e:
+            logger.warning("Aggregator json_mode failed, retrying without it: %s", e)
+            final_raw = await async_call_llm(
+                system_prompt="You are a senior research synthesiser. Output ONLY valid JSON.",
+                user_prompt=agg_user,
+            )
+        result = _parse_aggregator_output(final_raw)
         progress_callback("aggregating", "complete", "Report finalized")
-        result = extract_json(final_raw)
         if isinstance(result, dict):
             result["selected_agents"] = selected_agents
         return result
     except Exception as e:
         progress_callback("aggregating", "error", f"Aggregation failed: {e}")
-        # Return raw agent responses as fallback
         fallback = {
+            "tech_stack": [],
             "literature_review": str(responses.get("research", {}).get("result", {})),
             "datasets": str(responses.get("research", {}).get("result", {})),
             "models": str(responses.get("solution", {}).get("result", {})),
             "evaluation_plan": str(responses.get("experiment", {}).get("result", {})),
             "prototype_guidance": f"Aggregation failed: {e}",
             "selected_agents": selected_agents,
+            "parse_warning": "aggregator_failed",
         }
         return fallback
+
+
+def _parse_aggregator_output(raw: str) -> dict:
+    """Parse aggregator JSON, retrying once on failure, and normalise into a
+    safe shape so the frontend can always render something.
+
+    Returns a dict with keys: tech_stack, literature_review, datasets, models,
+    evaluation_plan, prototype_guidance, selected_agents, parse_warning (optional).
+    Each section is either a string (narrative) or an object with at least
+    `text` plus the relevant card-array keys.
+    """
+    parsed = extract_json(raw)
+    if not isinstance(parsed, dict):
+        raise ValueError("aggregator did not return a JSON object")
+
+    tech_stack = parsed.get("tech_stack") or []
+    if not isinstance(tech_stack, list):
+        tech_stack = []
+    tech_stack = [
+        str(t).strip() for t in tech_stack
+        if t is not None and str(t).strip()
+    ]
+    # Deduplicate case-insensitively while preserving first-seen casing
+    seen = set()
+    deduped = []
+    for t in tech_stack:
+        key = t.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(t)
+    tech_stack = deduped
+
+    section_keys = (
+        "literature_review", "datasets", "models",
+        "evaluation_plan", "prototype_guidance",
+    )
+
+    result: dict = {"tech_stack": tech_stack}
+    for key in section_keys:
+        value = parsed.get(key)
+        if isinstance(value, str):
+            result[key] = value
+        elif isinstance(value, dict):
+            # Ensure there's always a "text" string for narrative rendering
+            obj = dict(value)
+            obj.setdefault("text", "")
+            result[key] = obj
+        elif value is None:
+            result[key] = ""
+        else:
+            result[key] = str(value)
+
+    return result

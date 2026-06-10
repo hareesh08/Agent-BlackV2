@@ -39,6 +39,8 @@ class SettingsUpdate(BaseModel):
     anthropic_api_key: Optional[str] = None
     anthropic_base_url: Optional[str] = None
     anthropic_model: Optional[str] = None
+    kaggle_username: Optional[str] = None
+    kaggle_key: Optional[str] = None
     research_agent_url: Optional[str] = None
     solution_agent_url: Optional[str] = None
     experiment_agent_url: Optional[str] = None
@@ -46,6 +48,8 @@ class SettingsUpdate(BaseModel):
 class SettingsResponse(BaseModel):
     llm_provider: str
     providers: dict[str, LLMSettings]
+    kaggle_username: str = ""
+    kaggle_key_set: bool = False
     agent_urls: dict[str, str]
 
 class TechStackItem(BaseModel):

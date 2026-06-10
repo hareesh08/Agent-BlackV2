@@ -104,10 +104,19 @@ def search_huggingface_datasets(query: str = "", max_results: int = 10, domain: 
 
 def search_kaggle_datasets(query: str = "", max_results: int = 10) -> dict:
     search = _search_terms(query=query)
-    data = _safe_get_json(
+    from shared.config import KAGGLE_USERNAME, KAGGLE_KEY
+    auth = (KAGGLE_USERNAME, KAGGLE_KEY) if KAGGLE_USERNAME and KAGGLE_KEY else None
+    resp = requests.get(
         KAGGLE_DATASETS_URL,
+        headers=HEADERS,
+        auth=auth,
         params={"search": search, "sortBy": "relevance", "group": "public", "size": max_results, "page": 1},
+        timeout=30,
     )
+    if resp.status_code == 401:
+        raise RuntimeError("Kaggle API returned 401 — set KAGGLE_USERNAME and KAGGLE_KEY in Settings")
+    resp.raise_for_status()
+    data = resp.json()
     datasets = [_normalize_kaggle_dataset(item) for item in _as_list(data)[:max_results]]
     return {"source": "kaggle", "datasets": datasets, "count": len(datasets)}
 

@@ -77,7 +77,7 @@ function HistoryPage() {
             <li
               key={item.id}
               className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer hover:bg-surface-hover transition-colors"
-              onClick={() => navigate({ to: "/" })}
+              onClick={() => navigate({ to: "/", search: { historyId: item.uuid } })}
             >
               <span className="truncate text-sm">{item.query}</span>
               <span className="text-xs text-text-muted whitespace-nowrap">

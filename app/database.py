@@ -3,6 +3,7 @@ import os
 import json
 import time
 import asyncio
+import uuid as _uuid
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -24,11 +25,20 @@ def get_db():
     return conn
 
 
+def _migrate_queries_table(conn):
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(queries)").fetchall()]
+    if "uuid" not in cols:
+        conn.execute("ALTER TABLE queries ADD COLUMN uuid TEXT NOT NULL DEFAULT ''")
+        conn.execute("UPDATE queries SET uuid = 'legacy-' || id WHERE uuid = ''")
+        conn.commit()
+
+
 def init_db():
     conn = get_db()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS queries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT NOT NULL DEFAULT '',
             query TEXT NOT NULL,
             report TEXT NOT NULL DEFAULT '{}',
             diagram TEXT,
@@ -78,7 +88,9 @@ def init_db():
             timestamp REAL NOT NULL
         );
     """)
+    _migrate_queries_table(conn)
     conn.commit()
+    conn.close()
     conn.close()
 
 
@@ -153,9 +165,11 @@ def get_task_events(task_id: str):
 
 def save_query(query: str, report: dict, diagram: str = None, agents_used: list = None):
     conn = get_db()
+    _migrate_queries_table(conn)
+    uid = _uuid.uuid4().hex[:12]
     conn.execute(
-        "INSERT INTO queries (query, report, diagram, agents_used, created_at) VALUES (?, ?, ?, ?, ?)",
-        (query, json.dumps(report), diagram, json.dumps(agents_used or []), time.time()),
+        "INSERT INTO queries (uuid, query, report, diagram, agents_used, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (uid, query, json.dumps(report), diagram, json.dumps(agents_used or []), time.time()),
     )
     conn.commit()
     conn.close()
@@ -164,13 +178,14 @@ def save_query(query: str, report: dict, diagram: str = None, agents_used: list 
 def get_query_history(limit: int = 20):
     conn = get_db()
     rows = conn.execute(
-        "SELECT id, query, report, diagram, agents_used, created_at FROM queries ORDER BY created_at DESC LIMIT ?",
+        "SELECT id, uuid, query, report, diagram, agents_used, created_at FROM queries ORDER BY created_at DESC LIMIT ?",
         (limit,),
     ).fetchall()
     conn.close()
     return [
         {
             "id": r["id"],
+            "uuid": r["uuid"],
             "query": r["query"],
             "report": json.loads(r["report"]),
             "diagram": r["diagram"],
@@ -184,7 +199,7 @@ def get_query_history(limit: int = 20):
 def get_query_by_id(query_id: int):
     conn = get_db()
     row = conn.execute(
-        "SELECT id, query, report, diagram, agents_used, created_at FROM queries WHERE id=?",
+        "SELECT id, uuid, query, report, diagram, agents_used, created_at FROM queries WHERE id=?",
         (query_id,),
     ).fetchone()
     conn.close()
@@ -192,6 +207,27 @@ def get_query_by_id(query_id: int):
         return None
     return {
         "id": row["id"],
+        "uuid": row["uuid"],
+        "query": row["query"],
+        "report": json.loads(row["report"]) if row["report"] else None,
+        "diagram": row["diagram"],
+        "agents_used": json.loads(row["agents_used"]) if row["agents_used"] else [],
+        "created_at": row["created_at"],
+    }
+
+
+def get_query_by_uuid(query_uuid: str):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, uuid, query, report, diagram, agents_used, created_at FROM queries WHERE uuid=?",
+        (query_uuid,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "uuid": row["uuid"],
         "query": row["query"],
         "report": json.loads(row["report"]) if row["report"] else None,
         "diagram": row["diagram"],
@@ -321,3 +357,7 @@ async def async_save_query(query: str, report: dict, diagram: str = None, agents
 
 async def async_get_query_by_id(query_id: int):
     return await asyncio.to_thread(get_query_by_id, query_id)
+
+
+async def async_get_query_by_uuid(query_uuid: str):
+    return await asyncio.to_thread(get_query_by_uuid, query_uuid)

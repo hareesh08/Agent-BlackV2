@@ -94,6 +94,9 @@ ANTHROPIC_API_KEY = get_setting("ANTHROPIC_API_KEY")
 ANTHROPIC_BASE_URL = get_setting("ANTHROPIC_BASE_URL")
 ANTHROPIC_MODEL = get_setting("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
 
+KAGGLE_USERNAME = get_setting("KAGGLE_USERNAME")
+KAGGLE_KEY = get_setting("KAGGLE_KEY")
+
 # ── Agent URLs: env var > DB > env-default ─────────────────────────────────
 # Defaults differ by environment: production uses Docker service names,
 # local uses localhost.

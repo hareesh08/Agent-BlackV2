@@ -10,6 +10,7 @@ import { Trash2, MessageSquarePlus } from "lucide-react";
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>) => ({
     new: search.new === "1" ? "1" : undefined,
+    historyId: typeof search.historyId === "string" ? search.historyId : undefined,
   }),
   head: () => ({
     meta: [
@@ -52,7 +53,37 @@ function toDisplayString(v: unknown): string | null {
   }
 }
 
-function buildSectionsFromReport(report: Record<string, any> | undefined) {
+function toSectionValue(v: unknown): string | object | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v as object;
+  if (typeof v === "object") return v as object;
+  return String(v);
+}
+
+const TECH_HINTS = [
+  "PyTorch", "TensorFlow", "Keras", "JAX", "scikit-learn", "NumPy", "Pandas", "SciPy", "Polars",
+  "LightFM", "BERT", "GPT", "LLM", "Transformer", "SASRec", "LightGCN", "PinSage",
+  "GRU4Rec", "MAML", "Prototypical", "SVD", "InstructRec", "P5", "implicit", "Surprise", "RecBole",
+  "FAISS", "Annoy", "HNSW", "Qdrant", "Weaviate", "Pinecone", "Milvus", "Redis", "Elasticsearch", "Cassandra",
+  "MLflow", "Weights & Biases", "W&B", "Optuna", "DVC", "Airflow", "Kubeflow", "Ray", "TensorBoard", "Hydra",
+  "FastAPI", "Flask", "Django", "Streamlit", "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Nginx", "uvicorn", "Pydantic",
+  "MovieLens", "MovieLens-1M", "Amazon Reviews", "Yelp", "Spotify", "Goodreads", "IGDB", "Steam", "Netflix", "BookCrossing", "LastFM",
+  "CatBoost", "XGBoost", "LightGBM", "Prophet", "spaCy", "Hugging Face", "LangChain", "LlamaIndex",
+];
+
+function extractTechStackFromText(text: string): string[] {
+  if (!text) return [];
+  const found = new Set<string>();
+  for (const hint of TECH_HINTS) {
+    const re = new RegExp(`\\b${hint.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (re.test(text)) found.add(hint);
+  }
+  return Array.from(found);
+}
+
+function buildSectionsFromReport(report: Record<string, any> | undefined): import("@/lib/store").ReportSections | undefined {
   if (!report) return undefined;
 
   if (report.error === "not_research_query") {
@@ -66,17 +97,39 @@ function buildSectionsFromReport(report: Record<string, any> | undefined) {
     };
   }
 
+  const lr = toSectionValue(report.literature_review);
+  const ds = toSectionValue(report.datasets);
+  const md = toSectionValue(report.models);
+  const ev = toSectionValue(report.evaluation_plan);
+  const pg = toSectionValue(report.prototype_guidance);
+
+  // Combine LLM-emitted tech_stack with client-side extraction from any text
+  const llmStack = Array.isArray(report.tech_stack) ? report.tech_stack.map(String) : [];
+  const corpus = [lr, ds, md, ev, pg]
+    .filter((v): v is string => typeof v === "string")
+    .join("\n");
+  const extracted = extractTechStackFromText(corpus);
+  const seen = new Set<string>();
+  const tech_stack: string[] = [];
+  for (const t of [...llmStack, ...extracted]) {
+    const key = t.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); tech_stack.push(t); }
+  }
+
   return {
-    literature_review: toDisplayString(report.literature_review),
-    datasets: toDisplayString(report.datasets),
-    models: toDisplayString(report.models),
-    evaluation_plan: toDisplayString(report.evaluation_plan),
-    prototype_guidance: toDisplayString(report.prototype_guidance),
+    tech_stack,
+    parse_warning: report.parse_warning,
+    literature_review: lr as import("@/lib/store").SectionValue,
+    datasets: ds as import("@/lib/store").SectionValue,
+    models: md as import("@/lib/store").SectionValue,
+    evaluation_plan: ev as import("@/lib/store").SectionValue,
+    prototype_guidance: pg as import("@/lib/store").SectionValue,
   };
 }
 
 function historyItemToMessages(h: {
   id: number;
+  uuid: string;
   query: string;
   report: {
     content?: unknown;
@@ -118,11 +171,6 @@ function historyItemToMessages(h: {
   return [userMsg, assistantMsg];
 }
 
-function latestHistoryPair(history: HistoryItem[]): Message[] {
-  const latest = history.at(-1);
-  return latest ? historyItemToMessages(latest) : [];
-}
-
 function ChatPage() {
   const navigate = useNavigate({ from: "/" });
   const search = Route.useSearch();
@@ -153,15 +201,26 @@ function ChatPage() {
       return;
     }
 
+    if (search.historyId) {
+      api
+        .getQueryByUuid(search.historyId)
+        .then((item) => {
+          replaceAllMessages(historyItemToMessages(item));
+          setChatLocked(true);
+        })
+        .catch(() => undefined);
+      return;
+    }
+
     api
       .queryHistory()
       .then((history) => {
-        const latestMessages = latestHistoryPair(history);
+        const latestMessages = history.length > 0 ? historyItemToMessages(history[0]) : [];
         replaceAllMessages(latestMessages);
         setChatLocked(latestMessages.length > 0);
       })
       .catch(() => undefined);
-  }, [clearMessages, navigate, replaceAllMessages, search.new]);
+  }, [clearMessages, navigate, replaceAllMessages, search.new, search.historyId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });

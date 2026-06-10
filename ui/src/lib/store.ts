@@ -3,6 +3,63 @@ import { persist } from "zustand/middleware";
 
 export type AgentKey = "research" | "solution" | "experiment";
 
+export type SectionValue = string | StructuredSection | null | undefined;
+
+export interface StructuredSection {
+  text?: string;
+  papers?: PaperEntry[];
+  items?: SectionItem[];
+  phases?: PhaseEntry[];
+  special_considerations?: string[];
+  tech_stack_notes?: string[];
+  key_concepts?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface PaperEntry {
+  title?: string;
+  authors?: string | string[];
+  year?: number | string;
+  venue?: string;
+  key_finding?: string;
+  relevance?: string;
+  description?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export interface SectionItem {
+  name?: string;
+  metric?: string;
+  type?: string;
+  purpose?: string;
+  domain?: string;
+  size?: string;
+  source?: string;
+  license?: string;
+  suitable_for?: string;
+  libraries?: string[];
+  pros?: string[];
+  cons?: string[];
+  when_to_use?: string;
+  target?: string;
+  calculation?: string;
+  threshold_or_goal?: string;
+  url?: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export interface PhaseEntry {
+  phase?: string;
+  weeks?: string;
+  goal?: string;
+  tasks?: string[];
+  tech?: string[];
+  deliverable?: string;
+  [key: string]: unknown;
+}
+
 export interface ReportSections {
   error?: string | null;
   message?: string | null;
@@ -10,11 +67,13 @@ export interface ReportSections {
   suggestion?: string | null;
   supported_topics?: unknown;
   validation?: unknown;
-  literature_review?: string | null;
-  datasets?: string | null;
-  models?: string | null;
-  evaluation_plan?: string | null;
-  prototype_guidance?: string | null;
+  tech_stack?: string[];
+  parse_warning?: string;
+  literature_review?: SectionValue;
+  datasets?: SectionValue;
+  models?: SectionValue;
+  evaluation_plan?: SectionValue;
+  prototype_guidance?: SectionValue;
 }
 
 export interface TaskEvent {

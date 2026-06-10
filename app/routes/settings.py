@@ -33,6 +33,8 @@ def get_settings():
                 base_url=get_setting("ANTHROPIC_BASE_URL") or None,
             ),
         },
+        kaggle_username=get_setting("KAGGLE_USERNAME", ""),
+        kaggle_key_set=bool(get_setting("KAGGLE_KEY")),
         agent_urls=AGENT_URLS,
     )
 
@@ -60,6 +62,10 @@ def update_settings(update: SettingsUpdate):
         updates["ANTHROPIC_BASE_URL"] = update.anthropic_base_url
     if update.anthropic_model:
         updates["ANTHROPIC_MODEL"] = update.anthropic_model
+    if update.kaggle_username is not None:
+        updates["KAGGLE_USERNAME"] = update.kaggle_username
+    if update.kaggle_key is not None:
+        updates["KAGGLE_KEY"] = update.kaggle_key
     if update.research_agent_url:
         updates["RESEARCH_AGENT_URL"] = update.research_agent_url
     if update.solution_agent_url:

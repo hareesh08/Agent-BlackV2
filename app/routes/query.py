@@ -15,7 +15,7 @@ from app.database import (
     get_query_history, get_db,
     async_create_task, async_update_task_result, async_update_task_error,
     async_save_task_event, async_get_task, async_get_task_events, async_save_query,
-    async_get_query_by_id,
+    async_get_query_by_id, async_get_query_by_uuid,
 )
 
 router = APIRouter(tags=["query"])
@@ -363,6 +363,22 @@ async def get_task_status(task_id: str):
 @router.get("/query/history")
 async def get_history():
     return await asyncio.to_thread(get_query_history, 20)
+
+
+@router.get("/query/uuid/{query_uuid}")
+async def get_query_by_uuid(query_uuid: str):
+    item = await async_get_query_by_uuid(query_uuid)
+    if not item:
+        raise HTTPException(status_code=404, detail="Query not found")
+    return item
+
+
+@router.get("/query/{query_id}")
+async def get_query(query_id: int):
+    item = await async_get_query_by_id(query_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Query not found")
+    return item
 
 
 @router.post("/query/report/pdf")

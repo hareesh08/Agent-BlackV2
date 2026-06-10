@@ -18,6 +18,8 @@ function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  const [kaggleUsername, setKaggleUsername] = useState("");
+  const [kaggleKey, setKaggleKey] = useState("");
   const [urls, setUrls] = useState({
     research: "http://localhost:8001",
     solution: "http://localhost:8002",
@@ -33,6 +35,7 @@ function SettingsPage() {
       const cur = s.providers[s.llm_provider];
       setModel(cur?.model || "");
       setBaseUrl(cur?.base_url || "");
+      setKaggleUsername(s.kaggle_username || "");
       setUrls({
         research: s.agent_urls.research || "http://localhost:8001",
         solution: s.agent_urls.solution || "http://localhost:8002",
@@ -49,6 +52,8 @@ function SettingsPage() {
       if (apiKey) payload[`${provider}_api_key`] = apiKey;
       if (baseUrl) payload[`${provider}_base_url`] = baseUrl;
       if (model) payload[`${provider}_model`] = model;
+      payload.kaggle_username = kaggleUsername || undefined;
+      if (kaggleKey) payload.kaggle_key = kaggleKey;
       payload.research_agent_url = urls.research;
       payload.solution_agent_url = urls.solution;
       payload.experiment_agent_url = urls.experiment;
@@ -120,6 +125,36 @@ function SettingsPage() {
             <Input value={urls[k]} onChange={(v) => setUrls({ ...urls, [k]: v })} />
           </Field>
         ))}
+      </Section>
+
+      <Section title="Kaggle API">
+        <p className="text-xs text-text-secondary">
+          Required to fetch live datasets from Kaggle. Get your credentials from{" "}
+          <a
+            href="https://www.kaggle.com/settings"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            kaggle.com/settings
+          </a>
+          {" "}(API section → Create New Token).
+        </p>
+        <Field label="Kaggle Username">
+          <Input value={kaggleUsername} onChange={setKaggleUsername} placeholder="yourusername" />
+        </Field>
+        <Field label="Kaggle API Key">
+          <Input
+            value={kaggleKey}
+            onChange={setKaggleKey}
+            placeholder={
+              settings?.kaggle_key_set
+                ? "Key already set (type to replace)"
+                : "Paste your kaggle.json key..."
+            }
+            type="password"
+          />
+        </Field>
       </Section>
 
       <Section title="Theme">
