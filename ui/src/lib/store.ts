@@ -96,6 +96,7 @@ export interface Message {
   reasoning?: string;
   pending?: boolean;
   taskProgress?: TaskEvent[];
+  streamingContent?: string;
   raw?: unknown;
 }
 

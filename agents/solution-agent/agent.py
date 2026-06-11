@@ -11,21 +11,59 @@ from tools import TOOLS, execute_tool
 
 SYSTEM_PROMPT_PATH = os.path.join(os.path.dirname(__file__), "prompts", "agent.txt")
 
+
 def load_system_prompt() -> str:
     with open(SYSTEM_PROMPT_PATH) as f:
         return f.read()
 
-async def run_agent(query: str) -> dict:
-    from tools import TASKS as _TASKS
-    tool_list = _TASKS
-    system_prompt = load_system_prompt().format(tool_list=tool_list)
-    decision_raw = await async_call_llm(system_prompt=system_prompt, user_prompt=query)
-    decision = extract_json(decision_raw)
 
-    selected_tools = decision.get("selected_tools", [])
-    selected_tools = [t for t in selected_tools if t in TOOLS]
-    if not selected_tools:
-        selected_tools = ["search_papers", "analyze_gaps", "solution_recommendation"]
+def _parse_orchestrator_envelope(raw: str) -> dict:
+    stripped = raw.strip() if isinstance(raw, str) else ""
+    if not stripped.startswith("{"):
+        return {"query": raw, "sub_query": None, "pre_selected_tools": None}
+    try:
+        env = json.loads(stripped)
+    except (json.JSONDecodeError, ValueError):
+        return {"query": raw, "sub_query": None, "pre_selected_tools": None}
+    if not isinstance(env, dict):
+        return {"query": raw, "sub_query": None, "pre_selected_tools": None}
+
+    sub_query = env.get("sub_query")
+    sub_query = sub_query if isinstance(sub_query, str) and sub_query.strip() else None
+
+    base_query = env.get("query")
+    query = base_query if isinstance(base_query, str) and base_query.strip() else raw
+
+    pre_tools = env.get("tools")
+    if isinstance(pre_tools, list) and pre_tools:
+        kept = [t for t in pre_tools if isinstance(t, str) and t in TOOLS]
+        pre_tools = kept if kept else None
+    else:
+        pre_tools = None
+
+    return {"query": query, "sub_query": sub_query, "pre_selected_tools": pre_tools}
+
+
+async def run_agent(raw_input: str) -> dict:
+    envelope = _parse_orchestrator_envelope(raw_input)
+    query = envelope["sub_query"] or envelope["query"]
+    pre_selected = envelope["pre_selected_tools"]
+
+    if pre_selected is not None:
+        selected_tools = pre_selected
+        tools_source = "orchestrator"
+    else:
+        from tools import TASKS as _TASKS
+        tool_list = _TASKS
+        system_prompt = load_system_prompt().format(tool_list=tool_list)
+        decision_raw = await async_call_llm(system_prompt=system_prompt, user_prompt=query)
+        decision = extract_json(decision_raw)
+
+        selected_tools = decision.get("selected_tools", [])
+        selected_tools = [t for t in selected_tools if t in TOOLS]
+        if not selected_tools:
+            selected_tools = ["search_papers", "analyze_gaps", "solution_recommendation"]
+        tools_source = "agent_llm"
 
     async def _run_tool(tool_name: str):
         try:
@@ -47,6 +85,10 @@ Return ONLY valid JSON.
 """
     final_raw = await async_call_llm(
         system_prompt="You are a solution architect specializing in NLP systems.",
-        user_prompt=synthesis_prompt
+        user_prompt=synthesis_prompt,
     )
-    return extract_json(final_raw)
+    result = extract_json(final_raw)
+    if isinstance(result, dict):
+        result["tools_used"] = selected_tools
+        result["tools_source"] = tools_source
+    return result

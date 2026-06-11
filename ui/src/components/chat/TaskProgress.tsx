@@ -1,7 +1,19 @@
 import { type TaskEvent } from "@/lib/store";
-import { Check, Loader2, X, ChevronRight, Circle, Network } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  X,
+  ChevronRight,
+  Circle,
+  Network,
+  Wrench,
+  Zap,
+} from "lucide-react";
 
-const stepMeta: Record<string, { label: string; group: "orchestrator" | "agents" | "output" }> = {
+const stepMeta: Record<
+  string,
+  { label: string; group: "orchestrator" | "agents" | "output" | "tool_info" }
+> = {
   submitted: { label: "Query submitted", group: "orchestrator" },
   validating_query: { label: "Validating query", group: "orchestrator" },
   selecting_agents: { label: "Selecting agents", group: "orchestrator" },
@@ -15,17 +27,65 @@ const stepMeta: Record<string, { label: string; group: "orchestrator" | "agents"
   experiment: { label: "Experiment Agent", group: "agents" },
 };
 
-function StatusIcon({ status }: { status: string }) {
+const agentColorMap: Record<string, { ring: string; text: string; bg: string; badge: string }> = {
+  research: {
+    ring: "ring-cyan-500/40",
+    text: "text-cyan-400",
+    bg: "bg-cyan-500/10",
+    badge: "border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
+  },
+  solution: {
+    ring: "ring-violet-500/40",
+    text: "text-violet-400",
+    bg: "bg-violet-500/10",
+    badge: "border-violet-500/30 bg-violet-500/10 text-violet-300",
+  },
+  experiment: {
+    ring: "ring-amber-500/40",
+    text: "text-amber-400",
+    bg: "bg-amber-500/10",
+    badge: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  },
+};
+
+function StatusIcon({ status, size = "sm" }: { status: string; size?: "sm" | "xs" }) {
+  const dim = size === "xs" ? "h-2.5 w-2.5" : "h-3 w-3";
   if (status === "running") {
-    return <Loader2 className="h-3 w-3 animate-spin text-blue-400" />;
+    return <Loader2 className={`${dim} animate-spin text-blue-400`} />;
   }
   if (status === "complete") {
-    return <Check className="h-3 w-3 text-green-400" />;
+    return <Check className={`${dim} text-green-400`} />;
   }
   if (status === "error") {
-    return <X className="h-3 w-3 text-red-400" />;
+    return <X className={`${dim} text-red-400`} />;
   }
-  return <Circle className="h-2 w-2 text-text-muted" />;
+  return <Circle className="h-1.5 w-1.5 text-text-muted" />;
+}
+
+function parseToolsUsed(events: TaskEvent[], agentName: string): string[] {
+  const toolEvent = events.find(
+    (ev) => ev.step === agentName && ev.status === "tool_info",
+  );
+  if (!toolEvent) return [];
+  try {
+    const parsed = JSON.parse(toolEvent.detail);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function ToolPill({ name, delay }: { name: string; delay: number }) {
+  const displayName = name.replace(/_/g, " ");
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-text-secondary transition-all duration-300 animate-in fade-in slide-in-from-left-1"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <Wrench className="h-2.5 w-2.5 text-text-muted" />
+      {displayName}
+    </span>
+  );
 }
 
 function deduplicateEvents(events: TaskEvent[]): TaskEvent[] {
@@ -85,11 +145,22 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
   const activeAgentCount = agentEvents.filter((e) => e.status === "running").length;
   const doneAgentCount = agentEvents.filter((e) => e.status === "complete").length;
 
+  const totalToolsUsed = agentEvents.reduce((acc, ev) => {
+    const agentKey = ev.step.replace("_task", "");
+    return acc + parseToolsUsed(unique, ev.step).length;
+  }, 0);
+
   return (
     <div className="mb-3 rounded-xl border border-border bg-surface/50 p-3 text-xs">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-text-muted uppercase tracking-wider">
         <Network className="h-3 w-3" />
         A2A Agent Pipeline
+        {totalToolsUsed > 0 && (
+          <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0 text-emerald-400">
+            <Zap className="h-2.5 w-2.5" />
+            {totalToolsUsed} MCP tools
+          </span>
+        )}
       </div>
 
       <div className="relative">
@@ -104,12 +175,20 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                   <StatusIcon status={ev.status} />
                 </div>
                 <span
-                  className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}
+                  className={`text-xs ${
+                    ev.status === "running"
+                      ? "text-foreground"
+                      : ev.status === "complete"
+                        ? "text-text-secondary"
+                        : "text-text-muted"
+                  }`}
                 >
                   {meta?.label || ev.step}
                 </span>
                 {ev.status === "running" && (
-                  <span className="text-[10px] text-text-muted ml-1 animate-pulse">...</span>
+                  <span className="ml-1 animate-pulse text-[10px] text-text-muted">
+                    ...
+                  </span>
                 )}
               </div>
             );
@@ -120,36 +199,64 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
           <div className="relative mt-1 ml-0">
             <div className="absolute left-[7px] top-0 h-2 w-px bg-border" />
 
-            <div className="ml-5 rounded-lg border border-border/50 bg-background/50 p-2 mt-1">
-              <div className="flex items-center gap-1.5 mb-1.5 text-[10px] text-text-muted font-medium uppercase tracking-wider">
+            <div className="ml-5 mt-1 rounded-lg border border-border/50 bg-background/50 p-2">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
                 <ChevronRight className="h-2.5 w-2.5" />
                 Invoking sub-agents over A2A
                 {activeAgentCount > 0 && (
-                  <span className="ml-1 rounded-full bg-blue-500/10 px-1.5 py-0 text-blue-400">
+                  <span className="rounded-full bg-blue-500/10 px-1.5 py-0 text-blue-400">
                     {activeAgentCount} active
                   </span>
                 )}
                 {doneAgentCount > 0 && (
-                  <span className="ml-1 rounded-full bg-green-500/10 px-1.5 py-0 text-green-400">
+                  <span className="rounded-full bg-green-500/10 px-1.5 py-0 text-green-400">
                     {doneAgentCount} done
                   </span>
                 )}
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {agentEvents.map((ev) => {
                   const meta = stepMeta[ev.step];
+                  const agentKey = ev.step.replace("_task", "");
+                  const colors = agentColorMap[agentKey] || agentColorMap.research;
+                  const tools = parseToolsUsed(unique, ev.step);
+
                   return (
-                    <div key={ev.step} className="flex items-center gap-2">
-                      <div className="relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
-                        <StatusIcon status={ev.status} />
-                      </div>
-                      <span
-                        className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}
+                    <div key={ev.step} className="group">
+                      <div
+                        className={`flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors ${
+                          ev.status === "running" ? `${colors.bg} ring-1 ${colors.ring}` : ""
+                        }`}
                       >
-                        {meta?.label || ev.step}
-                      </span>
-                      {ev.status === "running" && (
-                        <Loader2 className="h-2.5 w-2.5 animate-spin text-blue-400" />
+                        <div className="relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface">
+                          <StatusIcon status={ev.status} size="xs" />
+                        </div>
+                        <span
+                          className={`text-xs ${
+                            ev.status === "running"
+                              ? "text-foreground"
+                              : ev.status === "complete"
+                                ? "text-text-secondary"
+                                : "text-text-muted"
+                          }`}
+                        >
+                          {meta?.label || ev.step}
+                        </span>
+                        {tools.length > 0 && (
+                          <span
+                            className={`ml-auto rounded-full px-1.5 py-0 text-[9px] font-medium ${colors.badge}`}
+                          >
+                            {tools.length} {tools.length === 1 ? "tool" : "tools"}
+                          </span>
+                        )}
+                      </div>
+
+                      {tools.length > 0 && (
+                        <div className="ml-4 mt-0.5 flex flex-wrap gap-1 pl-2 border-l border-border/30 py-0.5">
+                          {tools.map((tool, i) => (
+                            <ToolPill key={tool} name={tool} delay={i * 50} />
+                          ))}
+                        </div>
                       )}
                     </div>
                   );
@@ -169,7 +276,13 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                     <StatusIcon status={ev.status} />
                   </div>
                   <span
-                    className={`text-xs ${ev.status === "running" ? "text-foreground" : ev.status === "complete" ? "text-text-secondary" : "text-text-muted"}`}
+                    className={`text-xs ${
+                      ev.status === "running"
+                        ? "text-foreground"
+                        : ev.status === "complete"
+                          ? "text-text-secondary"
+                          : "text-text-muted"
+                    }`}
                   >
                     {meta?.label || ev.step}
                   </span>

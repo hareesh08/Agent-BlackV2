@@ -1,5 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, Github, ArrowUpRight } from "lucide-react";
+import {
+  ExternalLink,
+  Github,
+  ArrowUpRight,
+  Zap,
+  Brain,
+  Cpu,
+  Network,
+  FlaskConical,
+  BarChart3,
+  Globe,
+  Layers,
+  Shield,
+  Workflow,
+  Sparkles,
+  FileText,
+  MessageSquare,
+  Settings,
+  Gauge,
+  Rocket,
+} from "lucide-react";
 
 export const Route = createFileRoute("/about")({
   head: () => ({ meta: [{ title: "About · Agent Black" }] }),
@@ -13,19 +33,102 @@ const team = [
     name: "Hareesh",
     github: "https://github.com/hareesh08",
     role: "Solution Agent · Host Agent · FastAPI Backend · DevOps",
-    color: "#7B68EE",
   },
   {
     name: "Ajay Kumar",
     github: "https://github.com/Ajaybala05",
     role: "Research Agent · Host Agent",
-    color: "#2ECC71",
   },
   {
     name: "Shylaja",
     github: "https://github.com/shylaja-uu",
     role: "Experimental Agent",
-    color: "#E74C3C",
+  },
+];
+
+const features = [
+  {
+    icon: Brain,
+    title: "Research-Relevance Gate",
+    desc: "Smart query validation rejects non-research questions with helpful suggestions and supported topics.",
+  },
+  {
+    icon: Zap,
+    title: "LLM-Driven Orchestration",
+    desc: "Agent selection, task decomposition, and result aggregation powered by multi-provider LLMs.",
+  },
+  {
+    icon: Network,
+    title: "39 MCP Tools",
+    desc: "13 tools per agent covering paper search, dataset discovery, model recommendation, and more.",
+  },
+  {
+    icon: Workflow,
+    title: "A2A Protocol",
+    desc: "Agents communicate seamlessly via JSON-RPC 2.0 with standardized agent cards and task routing.",
+  },
+  {
+    icon: Gauge,
+    title: "SSE Streaming",
+    desc: "Real-time task progress streaming so you never lose sight of what's happening.",
+  },
+  {
+    icon: FileText,
+    title: "Structured Reports",
+    desc: "Unified reports with literature review, datasets, models, evaluation plans, and PDF export.",
+  },
+];
+
+const pipelineSteps = [
+  { step: "0", title: "Relevance Gate", desc: "Validates research intent", icon: Shield },
+  { step: "1", title: "Agent Selection", desc: "LLM picks the right agents", icon: Brain },
+  { step: "2", title: "Task Decomposition", desc: "Breaks into sub-tasks", icon: Layers },
+  { step: "3", title: "Concurrent Dispatch", desc: "Parallel agent execution", icon: Zap },
+  { step: "4", title: "Result Aggregation", desc: "LLM synthesizes output", icon: Sparkles },
+];
+
+const agents = [
+  {
+    name: "CV Research Agent",
+    port: 8001,
+    domain: "Computer Vision",
+    icon: Globe,
+    specs: [
+      "Image Classification",
+      "Object Detection",
+      "Segmentation",
+      "Vision Transformers",
+      "Medical Imaging",
+      "Video Analytics",
+    ],
+  },
+  {
+    name: "NLP Solution Agent",
+    port: 8002,
+    domain: "NLP / Solution Architecture",
+    icon: MessageSquare,
+    specs: [
+      "LLMs & RAG",
+      "Prompt Engineering",
+      "Text Classification",
+      "Summarization",
+      "Conversational AI",
+      "Information Extraction",
+    ],
+  },
+  {
+    name: "ML Experiment Agent",
+    port: 8003,
+    domain: "Machine Learning Experiments",
+    icon: FlaskConical,
+    specs: [
+      "Classical ML",
+      "Feature Engineering",
+      "Hyperparameter Tuning",
+      "Time Series",
+      "Experiment Design",
+      "Model Explainability",
+    ],
   },
 ];
 
@@ -34,38 +137,41 @@ const stack = [
     category: "Frontend",
     items: [
       { name: "React 19", icon: "react", desc: "UI library" },
-      { name: "TanStack Router", icon: "router", desc: "File-based routing" },
+      { name: "TanStack Start", icon: "router", desc: "SSR + file-based routing" },
       { name: "Tailwind CSS v4", icon: "tailwind", desc: "Utility-first CSS" },
-      { name: "Zustand", icon: "zustand", desc: "State management" },
+      { name: "shadcn/ui", icon: "ui", desc: "Component primitives" },
+      { name: "Zustand", icon: "zustand", desc: "Persisted state" },
+      { name: "TanStack Query", icon: "query", desc: "Data fetching + caching" },
+      { name: "Mermaid.js", icon: "mermaid", desc: "Diagram rendering" },
       { name: "Vite 7", icon: "vite", desc: "Build tool" },
-      { name: "Mermaid", icon: "mermaid", desc: "Diagram rendering" },
     ],
   },
   {
     category: "Backend",
     items: [
       { name: "FastAPI", icon: "fastapi", desc: "Async Python API" },
-      { name: "SQLite", icon: "sqlite", desc: "Config & history store" },
-      { name: "Pydantic", icon: "pydantic", desc: "Data validation" },
       { name: "Uvicorn", icon: "uvicorn", desc: "ASGI server" },
+      { name: "Pydantic v2", icon: "pydantic", desc: "Data validation" },
+      { name: "SQLite", icon: "sqlite", desc: "Config & history (WAL mode)" },
+      { name: "HTTPX", icon: "httpx", desc: "Async HTTP client" },
     ],
   },
   {
     category: "Agents & Protocols",
     items: [
-      { name: "MCP", icon: "mcp", desc: "Model Context Protocol — 39 tools" },
-      { name: "A2A", icon: "a2a", desc: "Agent-to-Agent JSON-RPC 2.0" },
-      { name: "OpenAI API", icon: "openai", desc: "LLM provider (mimo-v2.5)" },
+      { name: "MCP (JSON-RPC 2.0)", icon: "mcp", desc: "39 tools across 3 agents" },
+      { name: "A2A Protocol", icon: "a2a", desc: "Agent-to-Agent communication" },
       { name: "SSE Streaming", icon: "sse", desc: "Real-time task progress" },
+      { name: "Academic APIs", icon: "book", desc: "CrossRef + Semantic Scholar + arXiv" },
     ],
   },
   {
-    category: "DevOps & Infra",
+    category: "LLM Providers",
     items: [
-      { name: "Python 3.12", icon: "python", desc: "Agent runtime" },
-      { name: "Node.js", icon: "node", desc: "Frontend runtime" },
-      { name: "HTTPX", icon: "httpx", desc: "Async HTTP client" },
-      { name: "Importlib", icon: "importlib", desc: "Dynamic module loading" },
+      { name: "Google Gemini", icon: "gemini", desc: "gemini-1.5-flash default" },
+      { name: "OpenAI", icon: "openai", desc: "gpt-4o" },
+      { name: "Anthropic", icon: "anthropic", desc: "claude-3-5-sonnet" },
+      { name: "Auto-Retry", icon: "retry", desc: "Automatic retry on failure" },
     ],
   },
 ];
@@ -83,7 +189,15 @@ function TechIcon({ icon }: { icon: string }) {
       </svg>
     ),
     router: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M12 2v4m0 12v4M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
       </svg>
     ),
@@ -92,9 +206,38 @@ function TechIcon({ icon }: { icon: string }) {
         <path d="M12 6c-2.67 0-4.33 1.33-5 4 1-1.33 2.17-1.83 3.5-1.5.76.19 1.3.74 1.9 1.35.98 1 2.13 2.15 4.6 2.15 2.67 0 4.33-1.33 5-4-1 1.33-2.17 1.83-3.5 1.5-.76-.19-1.3-.74-1.9-1.35C15.02 7.15 13.87 6 12 6zM7 12c-2.67 0-4.33 1.33-5 4 1-1.33 2.17-1.83 3.5-1.5.76.19 1.3.74 1.9 1.35C8.38 16.85 9.53 18 12 18c2.67 0 4.33-1.33 5-4-1 1.33-2.17 1.83-3.5 1.5-.76-.19-1.3-.74-1.9-1.35C10.02 13.15 8.87 12 7 12z" />
       </svg>
     ),
+    ui: (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </svg>
+    ),
     zustand: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+      </svg>
+    ),
+    query: (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 12h2l3-9 4 18 3-9h4" />
       </svg>
     ),
     vite: (
@@ -134,7 +277,15 @@ function TechIcon({ icon }: { icon: string }) {
       </svg>
     ),
     a2a: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M17 1l4 4-4 4" />
         <path d="M3 11V9a4 4 0 014-4h14" />
         <path d="M7 23l-4-4 4-4" />
@@ -147,30 +298,54 @@ function TechIcon({ icon }: { icon: string }) {
       </svg>
     ),
     sse: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M4 12h2l3-9 4 18 3-9h4" />
       </svg>
     ),
-    python: (
+    gemini: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-        <path d="M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55-.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32-.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35-.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36-.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51-.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23-.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.89.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57-.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25-.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34-.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33-.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02-.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23-.33-.33-.23-.41-.08-.41.08z" />
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
       </svg>
     ),
-    node: (
+    anthropic: (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-        <path d="M11.998 24c-.321 0-.636-.084-.914-.243l-2.894-1.682c-.438-.245-.225-.332-.08-.383.585-.203.703-.25 1.328-.604.065-.037.151-.023.218.017l2.246 1.325c.082.045.197.045.272 0l8.795-5.065c.082-.047.134-.141.134-.238V6.921c0-.099-.053-.192-.137-.242l-8.791-5.055c-.081-.047-.189-.047-.271 0L3.075 6.68c-.084.05-.137.143-.137.241v10.15c0 .097.054.189.135.235l2.409 1.392c1.307.654 2.108-.116 2.108-.89V7.787c0-.142.114-.253.256-.253h1.115c.139 0 .255.112.255.253v10.021c0 1.745-.95 2.745-2.604 2.745-.508 0-.909 0-2.026-.551L2.28 18.675A1.857 1.857 0 011 17.072V6.921c0-.682.363-1.316.953-1.666L10.744.19a1.926 1.926 0 011.816 0l8.794 5.065c.59.35.953.984.953 1.666v10.15c0 .681-.363 1.315-.953 1.665l-8.794 5.065c-.283.159-.593.243-.918.243zm4.896-7.269c-3.38 0-4.119-1.558-4.119-2.876 0-.142.114-.253.256-.253h1.141c.12 0 .218.083.244.194.198.813.58 1.258 2.478 1.258 1.528 0 2.118-.355 2.118-1.148 0-.471-.188-.813-2.291-1.046-2.228-.238-3.288-.917-3.288-2.399 0-1.375 1.152-2.494 3.766-2.494 2.724 0 3.565 1.236 3.705 2.745.02.144-.08.253-.214.253h-1.131c-.125 0-.231-.091-.254-.212-.204-1.045-.644-1.395-2.106-1.395-1.37 0-1.924.321-1.924 1.046 0 .548.236.783 2.223 1.005 2.272.257 3.355.789 3.355 2.443 0 1.498-1.227 2.617-4.022 2.617z" />
+        <path d="M12 2L2 12l10 10 10-10L12 2zm0 4l6 6-6 6-6-6 6-6z" />
       </svg>
     ),
-    httpx: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="18" rx="2" />
-        <path d="M2 9h20M9 9v12" />
+    retry: (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 12a9 9 0 11-6.22-8.56" />
+        <path d="M21 3v5h-5" />
       </svg>
     ),
-    importlib: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2v6m0 8v6M2 12h6m8 0h6" />
-        <circle cx="12" cy="12" r="3" />
+    book: (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
       </svg>
     ),
   };
@@ -179,27 +354,33 @@ function TechIcon({ icon }: { icon: string }) {
 
 function About() {
   return (
-    <div className="mx-auto w-full max-w-[900px] px-3 py-6 sm:px-4 sm:py-10">
+    <div className="mx-auto w-full max-w-[960px] px-3 py-6 sm:px-4 sm:py-10">
       {/* Hero */}
-      <div className="relative mb-12 overflow-hidden rounded-2xl border border-border bg-surface p-6 sm:p-10">
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-foreground/5 blur-3xl" />
-        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-foreground/3 blur-2xl" />
+      <div className="relative mb-14 overflow-hidden rounded-2xl border border-border bg-surface p-6 sm:p-10">
+        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-foreground/5 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-foreground/3 blur-2xl animate-pulse [animation-delay:1s]" />
+        <div className="absolute right-1/3 bottom-1/4 h-40 w-40 rounded-full bg-foreground/5 blur-3xl animate-pulse [animation-delay:2s]" />
 
         <div className="relative">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-foreground">
-              <span className="text-lg font-bold text-background tracking-tighter">A·B</span>
+          <div className="mb-5 flex items-center gap-4">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-foreground shadow-lg shadow-foreground/20">
+              <span className="text-xl font-black text-background tracking-tighter">A·B</span>
+              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background border border-border text-[10px] font-bold text-foreground shadow">
+                v2
+              </div>
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Agent Black</h1>
-              <p className="text-sm text-text-secondary">Multi-Agent Research Platform</p>
+              <p className="text-sm text-text-secondary">Multi-Agent AI Research Platform</p>
             </div>
           </div>
 
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-text-secondary sm:text-base">
-            Agent Black is a multi-agent research platform with specialized CV, NLP, and ML agents,
-            coordinated by a host orchestrator through the A2A protocol and MCP tooling. The system is
-            designed to support structured, end-to-end research workflows through a focused, professional interface.
+            A multi-agent system where a <strong className="text-foreground">Control Panel</strong>{" "}
+            orchestrates three{" "}
+            <strong className="text-foreground">specialized research agents</strong> to solve
+            AI/ML/CV/NLP queries. Each agent is an independent FastAPI service with its own MCP tool
+            server and A2A endpoint — delivering structured, end-to-end research workflows.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -207,7 +388,7 @@ function About() {
               href={PROJECT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity shadow-md shadow-foreground/10"
             >
               <Github className="h-4 w-4" />
               View on GitHub
@@ -215,34 +396,163 @@ function About() {
             </a>
             <Link
               to="/dashboard"
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-surface-hover transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-hover px-5 py-2.5 text-sm font-medium hover:bg-surface-hover/80 transition-colors"
             >
+              <BarChart3 className="h-4 w-4" />
               Open Dashboard
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-hover px-5 py-2.5 text-sm font-medium hover:bg-surface-hover/80 transition-colors"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Start Query
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Architecture at a glance */}
-      <div className="mb-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Stats */}
+      <div className="mb-14 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Agents", value: "3", sub: "Research · Solution · Experiment" },
-          { label: "MCP Tools", value: "39", sub: "13 tools per agent" },
-          { label: "Protocol", value: "A2A", sub: "JSON-RPC 2.0" },
-          { label: "LLM", value: "OpenAI", sub: "mimo-v2.5 via custom endpoint" },
+          { label: "Agents", value: "3", sub: "CV · NLP · ML", icon: Cpu },
+          { label: "MCP Tools", value: "39", sub: "13 per agent", icon: Network },
+          { label: "Pipeline Steps", value: "5", sub: "End-to-end", icon: Workflow },
+          {
+            label: "LLM Providers",
+            value: "3",
+            sub: "Gemini · OpenAI · Anthropic",
+            icon: Brain,
+          },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-surface p-4">
-            <span className="text-[10px] uppercase tracking-wider text-text-muted">{s.label}</span>
-            <div className="mt-1 text-xl font-bold tracking-tight">{s.value}</div>
-            <p className="mt-0.5 text-[11px] text-text-muted">{s.sub}</p>
+          <div
+            key={s.label}
+            className="group relative rounded-xl border border-border bg-surface p-4 transition-all hover:border-foreground/20 hover:shadow-md overflow-hidden"
+          >
+            <div className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-foreground/5 blur-xl transition-opacity group-hover:bg-foreground/10" />
+            <div className="relative">
+              <div className="mb-2 flex items-center gap-2">
+                <s.icon className="h-3.5 w-3.5 text-foreground" />
+                <span className="text-[10px] uppercase tracking-wider text-text-muted font-medium">
+                  {s.label}
+                </span>
+              </div>
+              <div className="text-2xl font-black tracking-tight text-foreground">{s.value}</div>
+              <p className="mt-0.5 text-[11px] text-text-muted">{s.sub}</p>
+            </div>
           </div>
         ))}
       </div>
 
+      {/* Features */}
+      <section className="mb-14">
+        <div className="mb-6">
+          <h2 className="text-lg font-bold tracking-tight">Key Features</h2>
+          <p className="mt-1 text-sm text-text-secondary">What makes Agent Black powerful.</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((f) => (
+            <div
+              key={f.title}
+              className="group relative rounded-xl border border-border bg-surface p-5 transition-all hover:border-foreground/20 hover:shadow-md"
+            >
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/5 transition-transform group-hover:scale-110">
+                <f.icon className="h-5 w-5 text-foreground" />
+              </div>
+              <h3 className="text-sm font-semibold">{f.title}</h3>
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Orchestrator Pipeline */}
+      <section className="mb-14">
+        <div className="mb-6">
+          <h2 className="text-lg font-bold tracking-tight">Orchestrator Pipeline</h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            Every query flows through 5 intelligent steps.
+          </p>
+        </div>
+
+        <div className="relative rounded-xl border border-border bg-surface p-6">
+          <div className="absolute left-[29px] top-10 bottom-10 w-px bg-border sm:left-1/2 sm:translate-x-px" />
+
+          <div className="space-y-6">
+            {pipelineSteps.map((s, i) => (
+              <div
+                key={s.step}
+                className={`relative flex items-start gap-4 sm:gap-6 ${i % 2 === 1 ? "sm:flex-row-reverse" : ""}`}
+              >
+                <div className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 border-border bg-background shadow-sm">
+                  <s.icon className="h-5 w-5 text-foreground" />
+                </div>
+                <div
+                  className={`flex-1 rounded-xl border border-border bg-background/50 p-4 ${i % 2 === 1 ? "sm:text-right" : ""}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded bg-foreground/10 text-[10px] font-bold text-foreground">
+                      {s.step}
+                    </span>
+                    <h3 className="text-sm font-semibold">{s.title}</h3>
+                  </div>
+                  <p className="mt-1 text-xs text-text-secondary">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Agents */}
+      <section className="mb-14">
+        <div className="mb-6">
+          <h2 className="text-lg font-bold tracking-tight">Specialist Agents</h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            Each agent is a standalone FastAPI service with its own MCP tools and A2A endpoint.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {agents.map((a) => (
+            <div
+              key={a.name}
+              className="group relative rounded-xl border border-border bg-surface p-5 transition-all hover:border-foreground/20 hover:shadow-lg"
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/5 shadow-sm">
+                  <a.icon className="h-5 w-5 text-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">{a.name}</h3>
+                  <p className="text-[11px] text-text-muted">
+                    Port {a.port} · {a.domain}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {a.specs.map((s) => (
+                  <span
+                    key={s}
+                    className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-text-secondary"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Team */}
-      <section className="mb-12">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Team</h2>
-        <p className="mb-5 text-sm text-text-secondary">The team behind Agent Black.</p>
+      <section className="mb-14">
+        <div className="mb-6">
+          <h2 className="text-lg font-bold tracking-tight">Team</h2>
+          <p className="mt-1 text-sm text-text-secondary">The people behind Agent Black.</p>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
           {team.map((m, i) => (
@@ -251,17 +561,20 @@ function About() {
               href={m.github}
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative rounded-xl border border-border bg-surface p-5 transition-all hover:border-foreground/20 hover:shadow-md"
+              className="group relative rounded-xl border border-border bg-surface p-5 transition-all hover:border-foreground/20 hover:shadow-lg"
             >
               <div className="mb-3 flex items-center gap-3">
-                <img
-                  src={`https://avatars.githubusercontent.com/${m.github.replace("https://github.com/", "")}`}
-                  alt={m.name}
-                  className="h-10 w-10 rounded-full border border-border bg-surface object-cover"
-                  loading="lazy"
-                />
+                <div className="relative">
+                  <img
+                    src={`https://avatars.githubusercontent.com/${m.github.replace("https://github.com/", "")}`}
+                    alt={m.name}
+                    className="h-12 w-12 rounded-full border-2 border-border object-cover shadow-sm"
+                    loading="lazy"
+                  />
+                  <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-surface bg-foreground" />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold group-hover:underline">{m.name}</div>
+                  <div className="text-sm font-bold group-hover:underline">{m.name}</div>
                   <div className="flex items-center gap-1 text-[11px] text-text-muted">
                     <Github className="h-3 w-3" />
                     {m.github.replace("https://github.com/", "")}
@@ -276,19 +589,27 @@ function About() {
       </section>
 
       {/* Tech Stack */}
-      <section className="mb-12">
-        <h2 className="mb-1 text-lg font-semibold tracking-tight">Tech Stack</h2>
-        <p className="mb-5 text-sm text-text-secondary">Technologies and libraries powering the platform.</p>
+      <section className="mb-14">
+        <div className="mb-6">
+          <h2 className="text-lg font-bold tracking-tight">Tech Stack</h2>
+          <p className="mt-1 text-sm text-text-secondary">Technologies powering the platform.</p>
+        </div>
 
         <div className="space-y-4">
           {stack.map((group) => (
-            <div key={group.category} className="rounded-xl border border-border bg-surface">
-              <div className="border-b border-border-light px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <div
+              key={group.category}
+              className="rounded-xl border border-border bg-surface overflow-hidden"
+            >
+              <div className="border-b border-border-light bg-foreground/[0.02] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-text-muted">
                 {group.category}
               </div>
               <div className="grid grid-cols-1 divide-y divide-border-light sm:grid-cols-2 sm:divide-x sm:divide-y-0">
                 {group.items.map((item) => (
-                  <div key={item.name} className="flex items-center gap-3 px-4 py-3">
+                  <div
+                    key={item.name}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-foreground/[0.02]"
+                  >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-foreground">
                       <TechIcon icon={item.icon} />
                     </div>
@@ -304,11 +625,69 @@ function About() {
         </div>
       </section>
 
+      {/* Quick Links */}
+      <section className="mb-14">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-foreground" />
+              <h3 className="text-sm font-bold">Quick Start</h3>
+            </div>
+            <div className="space-y-2 text-xs text-text-secondary">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded bg-foreground/10 text-[9px] font-bold text-foreground">
+                  1
+                </span>
+                <code className="font-mono text-[11px]">pip install -r requirements.txt</code>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded bg-foreground/10 text-[9px] font-bold text-foreground">
+                  2
+                </span>
+                <code className="font-mono text-[11px]">python start.py</code>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded bg-foreground/10 text-[9px] font-bold text-foreground">
+                  3
+                </span>
+                <code className="font-mono text-[11px]">cd ui && bun install && bun run dev</code>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Settings className="h-4 w-4 text-foreground" />
+              <h3 className="text-sm font-bold">Service Ports</h3>
+            </div>
+            <div className="space-y-2 text-xs">
+              {[
+                { name: "Control Panel", port: "8000" },
+                { name: "CV Agent", port: "8001" },
+                { name: "NLP Agent", port: "8002" },
+                { name: "ML Agent", port: "8003" },
+                { name: "Frontend", port: "8080" },
+              ].map((s) => (
+                <div key={s.port} className="flex items-center justify-between">
+                  <span className="text-text-secondary">{s.name}</span>
+                  <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-foreground" />:{s.port}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <div className="border-t border-border pt-6 text-center text-xs text-text-muted">
-        <p>
-          Agent Black · Built with FastAPI, React, and Tailwind CSS
-        </p>
+        <div className="flex items-center justify-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground">
+            <span className="text-[8px] font-bold text-background">A·B</span>
+          </div>
+          <p className="font-medium">Agent Black · Built with FastAPI, React, and Tailwind CSS</p>
+        </div>
         <p className="mt-1">
           © {new Date().getFullYear()} Agent Black Contributors ·{" "}
           <a

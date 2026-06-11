@@ -125,7 +125,13 @@
   margin: 0.75rem 0;
 }
 .md-body pre code { background: transparent; padding: 0; }
-.md-body a { color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
+.md-body a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity 0.15s ease;
+}
+.md-body a:hover { opacity: 0.7; }
 .md-body table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem; }
 .md-body th, .md-body td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; }
 .md-body th { background: var(--surface-hover); font-weight: 600; }
@@ -137,16 +143,58 @@
 .loading-dot { animation: pulse-dot 1.4s infinite ease-in-out; }
 
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.fade-in-up { animation: fade-in-up 0.25s ease-out both; }
+.fade-in-up { animation: fade-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+.glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+
+/* Glass morphism utility */
+.glass {
+  background: rgba(var(--surface), 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Modern card hover effect */
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth focus ring */
+.focus-ring {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
 
 /* Responsive base utilities */
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
   }
   button, a, input, select, textarea {
     touch-action: manipulation;
@@ -155,4 +203,22 @@
     .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     .px-safe { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
   }
+}
+
+/* Page transition */
+@layer base {
+  [data-router-state="loading"] {
+    opacity: 0.8;
+  }
+}
+
+/* Subtle noise texture overlay (optional) */
+.noise-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  opacity: 0.015;
+  pointer-events: none;
+  z-index: 1000;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }

@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import httpx
 from shared.a2a_sdk import send_text_task
+from shared.discovery import discover_agents, render_catalog
 from shared.llm import async_call_llm, extract_json
 from shared.config import AGENT_URLS
 
@@ -75,6 +76,7 @@ def load_prompt(path: str) -> str:
     with open(path) as f:
         return f.read()
 
+
 def _load_prompt_safe(path: str) -> str:
     try:
         content = load_prompt(path)
@@ -83,11 +85,6 @@ def _load_prompt_safe(path: str) -> str:
         return content
     except (FileNotFoundError, ValueError) as e:
         raise RuntimeError(f"Failed to load prompt from {path}: {e}")
-
-
-async def _is_research_query(query: str) -> bool:
-    result = await validate_research_query(query)
-    return bool(result.get("is_research"))
 
 
 def _rule_based_validation(query: str) -> dict:
@@ -187,6 +184,84 @@ Query: {query}"""
         }
 
 
+def _build_routing_prompt(catalog_text: str, query: str) -> str:
+    template = _load_prompt_safe(SELECTION_PROMPT_PATH)
+    return template.replace("{{CATALOG}}", catalog_text).replace("{{QUERY}}", query)
+
+
+def _parse_routing_decision(raw: str) -> dict:
+    """Parse the orchestrator's routing LLM response into a normalized structure.
+
+    Expected shape:
+        {
+          "selected_agents": [
+            {"name": "research", "tools": ["search_papers"], "sub_query": "..."}
+          ],
+          "reasoning": "..."
+        }
+    Returns:
+        {"selected_agents": [...], "reasoning": "..."}
+    """
+    try:
+        parsed = extract_json(raw)
+    except Exception as e:
+        logger.warning("Routing JSON parse failed: %s", e)
+        return {"selected_agents": [], "reasoning": f"Parse failed: {e}"}
+
+    if not isinstance(parsed, dict):
+        return {"selected_agents": [], "reasoning": "Routing response was not a JSON object."}
+
+    raw_list = parsed.get("selected_agents")
+    if not isinstance(raw_list, list):
+        return {"selected_agents": [], "reasoning": "No selected_agents list in response."}
+
+    normalized: list[dict] = []
+    for entry in raw_list:
+        if isinstance(entry, str):
+            normalized.append({"name": entry, "tools": [], "sub_query": ""})
+        elif isinstance(entry, dict):
+            name = entry.get("name")
+            if isinstance(name, str) and name.strip():
+                tools = entry.get("tools") or []
+                tools = [t for t in tools if isinstance(t, str) and t.strip()]
+                sub_query = entry.get("sub_query") or entry.get("query") or ""
+                if not isinstance(sub_query, str):
+                    sub_query = ""
+                normalized.append(
+                    {"name": name.strip(), "tools": tools, "sub_query": sub_query.strip()}
+                )
+
+    return {
+        "selected_agents": normalized,
+        "reasoning": str(parsed.get("reasoning", "")),
+    }
+
+
+def _filter_routing_against_catalog(
+    routing: dict, catalog: list[dict]
+) -> tuple[list[dict], list[str]]:
+    """Drop entries whose agent or tools don't exist in the live catalog.
+
+    Returns (valid_entries, drop_reasons).
+    """
+    catalog_by_name = {a["name"]: a for a in catalog}
+    valid: list[dict] = []
+    drops: list[str] = []
+    for entry in routing.get("selected_agents", []):
+        name = entry["name"]
+        if name not in catalog_by_name:
+            drops.append(f"unknown agent '{name}'")
+            continue
+        available_tools = {t["name"] for t in catalog_by_name[name].get("tools", [])}
+        requested_tools = entry.get("tools", []) or []
+        kept_tools = [t for t in requested_tools if t in available_tools]
+        dropped_tools = [t for t in requested_tools if t not in available_tools]
+        for t in dropped_tools:
+            drops.append(f"tool '{t}' not on agent '{name}'")
+        valid.append({**entry, "name": name, "tools": kept_tools})
+    return valid, drops
+
+
 async def orchestrate(query: str, progress_callback=None) -> dict:
     if progress_callback is None:
         progress_callback = lambda step, status, detail: None
@@ -217,69 +292,96 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         return _build_not_research_response(reason, validation)
     progress_callback("validating_query", "complete", "Query is research-related")
 
-    # ── Step 1: Select agents ──────────────────────────────────────────────────
-    progress_callback("selecting_agents", "running", "Selecting relevant agents...")
-    valid_agents = {"research", "solution", "experiment"}
-    selected_agents = list(valid_agents)  # default fallback
+    # ── Step 1: Live agent + tool discovery ───────────────────────────────────
+    progress_callback("discovering_agents", "running", "Discovering live agents and their tools...")
+    catalog = await discover_agents()
+    if not catalog:
+        progress_callback("discovering_agents", "error", "No agents are reachable")
+        return {
+            "error": "no_agents_available",
+            "message": "No specialist agents responded to discovery. Check that the 3 agent services are running on :8001/:8002/:8003.",
+        }
+    progress_callback(
+        "discovering_agents",
+        "complete",
+        f"Found {len(catalog)} agents: {', '.join(a['name'] for a in catalog)}",
+    )
 
+    # ── Step 2: LLM picks agents + tools from the live catalog ────────────────
+    progress_callback("routing", "running", "LLM is selecting agents and tools...")
     try:
-        selection_prompt = _load_prompt_safe(SELECTION_PROMPT_PATH)
-        selection_raw = await async_call_llm(
-            system_prompt="You are a research orchestrator that selects relevant agents. You MUST respond with valid JSON only.",
-            user_prompt=selection_prompt.format(query=query)
+        catalog_text = render_catalog(catalog)
+        routing_prompt = _build_routing_prompt(catalog_text, query)
+        routing_raw = await async_call_llm(
+            system_prompt="You are a research routing orchestrator. Output ONLY valid JSON. No prose, no markdown.",
+            user_prompt=routing_prompt,
+            json_mode=True,
         )
-        selection = extract_json(selection_raw)
-
-        if isinstance(selection, dict):
-            raw_list = selection.get("selected_agents", [])
-            if isinstance(raw_list, list):
-                selected_agents = [a for a in raw_list if isinstance(a, str) and a in valid_agents]
-        elif isinstance(selection, list):
-            selected_agents = [a for a in selection if isinstance(a, str) and a in valid_agents]
-
-        if not selected_agents:
-            progress_callback("selecting_agents", "complete", "No relevant agents found for this query")
-            return NOT_RESEARCH_RESPONSE
-        progress_callback("selecting_agents", "complete", f"Selected: {', '.join(selected_agents)}")
+        routing = _parse_routing_decision(routing_raw)
     except Exception as e:
-        progress_callback("selecting_agents", "complete", f"Selection parse failed, using all agents")
+        progress_callback("routing", "error", f"Routing LLM call failed: {e}")
+        return {
+            "error": "routing_failed",
+            "message": "The orchestrator's routing LLM call failed.",
+            "reason": str(e),
+        }
 
-    # ── Step 2: Decompose query ────────────────────────────────────────────────
-    progress_callback("decomposing_task", "running", "Decomposing query into sub-tasks...")
-    try:
-        decompose_prompt = _load_prompt_safe(DECOMPOSE_PROMPT_PATH)
-        decomposed_raw = await async_call_llm(
-            system_prompt="You are a research orchestrator.",
-            user_prompt=decompose_prompt.format(query=query)
+    selected, drop_reasons = _filter_routing_against_catalog(routing, catalog)
+    if drop_reasons:
+        logger.info("Routing drops: %s", drop_reasons)
+
+    if not selected:
+        progress_callback("routing", "complete", "No agents selected for this query")
+        not_research = _build_not_research_response(
+            routing.get("reasoning") or "No agent is relevant for this query."
         )
-        tasks = extract_json(decomposed_raw)
-        progress_callback("decomposing_task", "complete", "Query decomposed into sub-tasks")
-    except Exception as e:
-        tasks = {}
-        progress_callback("decomposing_task", "complete", f"Decomposition failed, using original query: {e}")
+        not_research["routing"] = routing
+        return not_research
 
-    agent_endpoints = {
-        "research": ("research_task", AGENT_URLS["research"]),
-        "solution": ("solution_task", AGENT_URLS["solution"]),
-        "experiment": ("experiment_task", AGENT_URLS["experiment"]),
-    }
+    selected_names = [s["name"] for s in selected]
+    reasoning = routing.get("reasoning", "")
+    progress_callback(
+        "routing",
+        "complete",
+        json.dumps({"agents": selected_names, "reasoning": reasoning}),
+    )
 
-    # ── Step 3: Dispatch to sub-agents concurrently ────────────────────────────
-    async def _call_agent(_client: httpx.AsyncClient, agent_name: str):
-        task_key, base_url = agent_endpoints[agent_name]
-        sub_query = tasks.get(task_key, query)
-        progress_callback(agent_name, "running", f"Calling {agent_name} agent...")
+    # ── Step 3: Dispatch to sub-agents concurrently with pre-selected tools ───
+    catalog_by_name = {a["name"]: a for a in catalog}
+
+    async def _call_agent(_client: httpx.AsyncClient, entry: dict):
+        name = entry["name"]
+        base_url = catalog_by_name[name]["url"]
+        sub_query = entry.get("sub_query") or query
+        tools = entry.get("tools") or []
+        envelope = json.dumps(
+            {
+                "query": query,
+                "sub_query": sub_query,
+                "tools": tools,
+            }
+        )
+        progress_callback(
+            name,
+            "running",
+            f"Calling {name} with {len(tools)} pre-selected tool(s)...",
+        )
         try:
-            result = await send_text_task(base_url, sub_query)
-            progress_callback(agent_name, "complete", f"{agent_name} agent completed")
-            return agent_name, result
+            result = await send_text_task(base_url, envelope)
+            snippet = ""
+            if isinstance(result, dict):
+                snippet = json.dumps(result, indent=2)[:500]
+            elif isinstance(result, str):
+                snippet = result[:500]
+            progress_callback(name, "complete", json.dumps({"tools": tools, "snippet": snippet}))
+            return name, result
         except Exception as e:
-            msg = f"{agent_name} agent A2A request failed: {e}"
-            progress_callback(agent_name, "error", msg)
-            return agent_name, {"error": msg}
+            msg = f"{name} A2A request failed: {e}"
+            progress_callback(name, "error", msg)
+            return name, {"error": msg}
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        agent_tasks = [_call_agent(client, name) for name in selected_agents]
+    async with httpx.AsyncClient(timeout=300) as client:
+        agent_tasks = [_call_agent(client, entry) for entry in selected]
         agent_results = await asyncio.gather(*agent_tasks)
         responses = {name: result for name, result in agent_results}
 
@@ -288,14 +390,11 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
     try:
         agg_template = _load_prompt_safe(AGGREGATOR_PROMPT_PATH)
         agg_user = agg_template.format(
-            agents=json.dumps(selected_agents),
+            agents=json.dumps(selected_names),
             research=json.dumps(responses.get("research", {"result": {}}))[:6000],
             solution=json.dumps(responses.get("solution", {"result": {}}))[:6000],
             experiment=json.dumps(responses.get("experiment", {"result": {}}))[:6000],
         )
-        # Try JSON mode first for stricter output; fall back to plain text on
-        # provider errors (some OpenAI-compatible endpoints reject
-        # response_format=json_object).
         final_raw = None
         try:
             final_raw = await async_call_llm(
@@ -312,20 +411,37 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         result = _parse_aggregator_output(final_raw)
         progress_callback("aggregating", "complete", "Report finalized")
         if isinstance(result, dict):
-            result["selected_agents"] = selected_agents
+            result["selected_agents"] = selected_names
+            result["routing_reasoning"] = routing.get("reasoning", "")
         return result
     except Exception as e:
         progress_callback("aggregating", "error", f"Aggregation failed: {e}")
+        def _extract_section(agent_key: str, section_keys: list[str] | None = None) -> str:
+            agent_resp = responses.get(agent_key)
+            if isinstance(agent_resp, dict):
+                if section_keys:
+                    for sk in section_keys:
+                        if sk in agent_resp:
+                            val = agent_resp[sk]
+                            return val if isinstance(val, str) else json.dumps(val, indent=2)
+                return json.dumps(agent_resp, indent=2)
+            if agent_resp is not None:
+                return json.dumps(agent_resp, indent=2) if not isinstance(agent_resp, str) else agent_resp
+            return ""
+
         fallback = {
             "tech_stack": [],
-            "literature_review": str(responses.get("research", {}).get("result", {})),
-            "datasets": str(responses.get("research", {}).get("result", {})),
-            "models": str(responses.get("solution", {}).get("result", {})),
-            "evaluation_plan": str(responses.get("experiment", {}).get("result", {})),
-            "prototype_guidance": f"Aggregation failed: {e}",
-            "selected_agents": selected_agents,
+            "literature_review": _extract_section("research", ["literature_review", "papers", "text"]),
+            "datasets": _extract_section("research", ["datasets", "datasets_found", "data"]),
+            "models": _extract_section("research", ["models", "model_recommendations", "architecture"]),
+            "evaluation_plan": _extract_section("experiment", ["evaluation_plan", "experiments", "metrics"]),
+            "prototype_guidance": _extract_section("solution", ["prototype_guidance", "guidance", "recommendations"]),
+            "selected_agents": selected_names,
+            "routing_reasoning": routing.get("reasoning", ""),
             "parse_warning": "aggregator_failed",
         }
+        if not any(v for k, v in fallback.items() if k not in ("selected_agents", "routing_reasoning", "parse_warning", "tech_stack")):
+            fallback["prototype_guidance"] = f"Aggregation failed: {e}. Agent responses: {json.dumps({k: str(v)[:200] for k, v in responses.items()})}"
         return fallback
 
 
@@ -335,8 +451,6 @@ def _parse_aggregator_output(raw: str) -> dict:
 
     Returns a dict with keys: tech_stack, literature_review, datasets, models,
     evaluation_plan, prototype_guidance, selected_agents, parse_warning (optional).
-    Each section is either a string (narrative) or an object with at least
-    `text` plus the relevant card-array keys.
     """
     parsed = extract_json(raw)
     if not isinstance(parsed, dict):
@@ -349,7 +463,6 @@ def _parse_aggregator_output(raw: str) -> dict:
         str(t).strip() for t in tech_stack
         if t is not None and str(t).strip()
     ]
-    # Deduplicate case-insensitively while preserving first-seen casing
     seen = set()
     deduped = []
     for t in tech_stack:
@@ -370,7 +483,6 @@ def _parse_aggregator_output(raw: str) -> dict:
         if isinstance(value, str):
             result[key] = value
         elif isinstance(value, dict):
-            # Ensure there's always a "text" string for narrative rendering
             obj = dict(value)
             obj.setdefault("text", "")
             result[key] = obj

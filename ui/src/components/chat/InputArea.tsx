@@ -1,4 +1,4 @@
-import { ArrowUp, Settings2 } from "lucide-react";
+import { ArrowUp, Settings2, Sparkles } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
 
 export function InputArea({
@@ -11,6 +11,7 @@ export function InputArea({
   placeholder?: string;
 }) {
   const [value, setValue] = useState("");
+  const [focused, setFocused] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const resize = () => {
@@ -36,12 +37,18 @@ export function InputArea({
   };
 
   return (
-    <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-4 pb-4">
+    <div className="sticky bottom-0 bg-gradient-to-t from-background via-background to-transparent pt-6 pb-4">
       <div className="mx-auto max-w-[860px] px-4">
-        <div className="flex items-end gap-2 rounded-xl border border-border bg-surface p-1.5 shadow-sm focus-within:border-foreground/40 transition-colors sm:rounded-2xl sm:p-2">
+        <div
+          className={`flex items-end gap-2 rounded-2xl border bg-surface p-2 transition-all duration-200 ${
+            focused
+              ? "border-foreground/30 shadow-lg shadow-foreground/5"
+              : "border-border shadow-sm"
+          } sm:p-2.5`}
+        >
           <button
             type="button"
-            className="rounded-lg p-2 text-text-secondary hover:bg-surface-hover"
+            className="rounded-xl p-2.5 text-text-secondary hover:bg-surface-hover hover:text-foreground transition-colors"
             aria-label="Tech stack settings"
           >
             <Settings2 className="h-4 w-4" />
@@ -54,20 +61,30 @@ export function InputArea({
               resize();
             }}
             onKeyDown={onKey}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             rows={1}
             placeholder={placeholder || "Ask the agents to research, design, or prototype..."}
-            className="flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-6 outline-none placeholder:text-text-muted sm:text-[15px]"
+            className="flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-6 outline-none placeholder:text-text-muted sm:text-[15px]"
           />
           <button
             onClick={submit}
             disabled={disabled || !value.trim()}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-background transition-opacity hover:opacity-90 disabled:opacity-30"
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+              value.trim() && !disabled
+                ? "bg-foreground text-background shadow-sm hover:opacity-90 hover:shadow-md"
+                : "bg-surface-hover text-text-muted"
+            }`}
             aria-label="Send"
           >
-            <ArrowUp className="h-4 w-4" />
+            {value.trim() ? (
+              <ArrowUp className="h-4 w-4" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
           </button>
         </div>
-        <p className="mt-2 hidden text-center text-[11px] text-text-muted sm:block">
+        <p className="mt-2.5 hidden text-center text-[11px] text-text-muted sm:block">
           Enter to send · Shift + Enter for newline
         </p>
       </div>

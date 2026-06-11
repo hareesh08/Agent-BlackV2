@@ -17,6 +17,7 @@ from app.database import (
     async_save_task_event, async_get_task, async_get_task_events, async_save_query,
     async_get_query_by_id, async_get_query_by_uuid,
 )
+from shared.config import SSE_TIMEOUT
 
 router = APIRouter(tags=["query"])
 
@@ -322,7 +323,6 @@ async def stream_task_events(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
 
     sent_events = set()
-    SSE_TIMEOUT = 300
 
     async def event_generator():
         nonlocal sent_events
@@ -332,7 +332,7 @@ async def stream_task_events(task_id: str):
             if elapsed > SSE_TIMEOUT:
                 err_task = await async_get_task(task_id)
                 if err_task and err_task["status"] == "running":
-                    await async_update_task_error(task_id, "Stream timed out after 300s")
+                    await async_update_task_error(task_id, f"Stream timed out after {SSE_TIMEOUT}s")
                     err_task = await async_get_task(task_id)
                 yield f"event: done\ndata: {json.dumps(err_task or {})}\n\n"
                 return

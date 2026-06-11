@@ -272,10 +272,46 @@ function ChatPage() {
       api.streamTask(
         task_id,
         (ev: TaskEvent) => {
-          const current =
-            useAppStore.getState().messages.find((m) => m.id === placeholderId)?.taskProgress || [];
+          const state = useAppStore.getState();
+          const msg = state.messages.find((m) => m.id === placeholderId);
+          const current = msg?.taskProgress || [];
           const merged = [...current.filter((e) => e.step !== ev.step), ev];
-          updateMessage(placeholderId, { taskProgress: merged });
+
+          let streamingContent = msg?.streamingContent || "";
+          if (ev.status === "complete" && ev.step === "routing") {
+            try {
+              const parsed = JSON.parse(ev.detail);
+              const agents = parsed.agents || [];
+              const reasoning = parsed.reasoning || "";
+              streamingContent = `Routing to: ${agents.join(", ")}\n\n${reasoning}`;
+            } catch {
+              streamingContent = ev.detail;
+            }
+          } else if (ev.status === "complete" && ["research", "solution", "experiment"].includes(ev.step)) {
+            try {
+              const parsed = JSON.parse(ev.detail);
+              const tools = parsed.tools || [];
+              const snippet = parsed.snippet || "";
+              const toolList = tools.length > 0 ? `Used: ${tools.join(", ")}` : "";
+              const section = `\n\n---\n${ev.step.toUpperCase()} Response:\n${toolList}\n${snippet}`;
+              streamingContent = (streamingContent || `Agents processing...`) + section;
+            } catch {
+              streamingContent = (streamingContent || "") + `\n\n${ev.step}: ${ev.detail}`;
+            }
+          } else if (ev.status === "running") {
+            if (ev.step === "routing") {
+              streamingContent = "Selecting agents...";
+            } else if (["research", "solution", "experiment"].includes(ev.step)) {
+              const agentCount = merged.filter((e) => ["research", "solution", "experiment"].includes(e.step)).length;
+              if (!streamingContent || streamingContent === "Selecting agents...") {
+                streamingContent = `Agents processing...`;
+              }
+            } else if (ev.step === "aggregating") {
+              streamingContent = "Synthesizing final report...";
+            }
+          }
+
+          updateMessage(placeholderId, { taskProgress: merged, streamingContent });
         },
         (result) => {
           if (result.status === "error" || !result.report) {
@@ -301,6 +337,7 @@ function ChatPage() {
               content,
               sections,
               agentsUsed: result.agents_used?.length ? result.agents_used : undefined,
+              streamingContent: undefined,
               raw: result,
             });
             setChatLocked(true);

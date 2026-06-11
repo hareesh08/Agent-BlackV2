@@ -187,7 +187,7 @@ def add_sdk_a2a_routes(
 
 
 async def send_text_task(base_url: str, query: str) -> dict[str, Any]:
-    async with httpx.AsyncClient(timeout=120) as httpx_client:
+    async with httpx.AsyncClient(timeout=300) as httpx_client:
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
         card = await resolver.get_agent_card()
         client = await create_client(
@@ -198,12 +198,29 @@ async def send_text_task(base_url: str, query: str) -> dict[str, Any]:
             request = SendMessageRequest(
                 message=new_text_message(query, media_type=TEXT_MODE, role=Role.ROLE_USER)
             )
-            final_response = None
+            # Stream order is: task → status_update(working) → artifact_update
+            # → status_update(completed). The last chunk is just a status_update
+            # saying "Request completed", so we must scan the stream and prefer
+            # the chunk that actually carries the result (artifact_update,
+            # message, or task with artifacts). Fall back to the final chunk
+            # if no payload-bearing chunk is seen.
+            artifact_chunk = None
+            message_chunk = None
+            task_chunk = None
+            final_chunk = None
             async for chunk in client.send_message(request):
-                final_response = chunk
-            if final_response is None:
+                final_chunk = chunk
+                if chunk.HasField("artifact_update") and artifact_chunk is None:
+                    artifact_chunk = chunk
+                elif chunk.HasField("message") and message_chunk is None:
+                    message_chunk = chunk
+                elif chunk.HasField("task") and task_chunk is None:
+                    task_chunk = chunk
+
+            chosen = artifact_chunk or message_chunk or task_chunk or final_chunk
+            if chosen is None:
                 raise RuntimeError(f"A2A agent at {base_url} returned no response")
-            return normalize_stream_response(final_response)
+            return normalize_stream_response(chosen)
         finally:
             await client.close()
 

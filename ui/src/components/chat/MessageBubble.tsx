@@ -1,5 +1,5 @@
 import ReactMarkdown from "react-markdown";
-import { Check, Copy, FileDown, FileText, Workflow, Braces, Loader2, ZoomIn, ZoomOut, Maximize2, Minimize2 } from "lucide-react";
+import { Check, Copy, FileDown, FileText, Workflow, Braces, Loader2, ZoomIn, ZoomOut, Maximize2, Minimize2, TreePine } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Message } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -7,8 +7,10 @@ import { AgentsUsedBadge } from "./AgentsUsedBadge";
 import { ReportSections } from "./ReportSection";
 import { TaskProgress } from "./TaskProgress";
 import { MermaidDiagram } from "@/components/shared/MermaidDiagram";
+import { JsonViewer, JsonTreeView } from "@/components/shared/JsonViewer";
 
 type View = "report" | "diagram" | "raw";
+type RawView = "syntax" | "tree";
 
 function isJsonString(s: string): boolean {
   if (!s) return false;
@@ -21,14 +23,12 @@ function formatContent(raw: unknown): string | null {
   let text = raw.trim();
   if (!text) return null;
 
-  // If the entire string is JSON, return null (sections handle it)
   if (isJsonString(text)) return null;
 
-  // Strip trailing JSON: object/array on new line, or code fence
   const jsonPatterns = [
-    /\n\s*\{[\s\S]*$/,   // JSON object
-    /\n\s*\[[\s\S]*$/,   // JSON array
-    /```json[\s\S]*$/,   // Code fence
+    /\n\s*\{[\s\S]*$/,
+    /\n\s*\[[\s\S]*$/,
+    /```json[\s\S]*$/,
   ];
   for (const p of jsonPatterns) {
     const m = text.search(p);
@@ -46,6 +46,100 @@ function getMessageReport(message: Message): Record<string, any> | null {
   if (!raw || typeof raw !== "object") return null;
   if (raw.report && typeof raw.report === "object") return raw.report;
   return raw;
+}
+
+function IconBtn({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="rounded-md p-1 text-text-secondary hover:bg-surface-hover hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+function RawJsonView({ data }: { data: unknown }) {
+  const [view, setView] = useState<RawView>("syntax");
+
+  return (
+    <div className="fade-in-up">
+      <div className="mb-2 inline-flex flex-wrap rounded-lg border border-border bg-background p-0.5 text-xs">
+        <button
+          onClick={() => setView("syntax")}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+            view === "syntax"
+              ? "bg-foreground text-background"
+              : "text-text-secondary hover:bg-surface-hover"
+          }`}
+        >
+          <Braces className="h-3.5 w-3.5" />
+          Syntax
+        </button>
+        <button
+          onClick={() => setView("tree")}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+            view === "tree"
+              ? "bg-foreground text-background"
+              : "text-text-secondary hover:bg-surface-hover"
+          }`}
+        >
+          <TreePine className="h-3.5 w-3.5" />
+          Tree
+        </button>
+      </div>
+      {view === "syntax" ? <JsonViewer data={data} /> : <JsonTreeView data={data} />}
+    </div>
+  );
+}
+
+function ToolbarBtn({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+        active
+          ? "bg-foreground text-background"
+          : "text-text-secondary hover:bg-surface-hover"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function LoadingDots() {
+  return (
+    <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-md bg-surface px-4 py-4 w-fit">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="loading-dot h-1.5 w-1.5 rounded-full bg-text-secondary"
+          style={{ animationDelay: `${i * 0.15}s` }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function MessageBubble({ message }: { message: Message }) {
@@ -95,33 +189,12 @@ export function MessageBubble({ message }: { message: Message }) {
       <div className="flex justify-end fade-in-up">
         <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-primary-foreground text-sm leading-relaxed sm:max-w-[80%] sm:px-4 sm:py-2.5 sm:text-[15px]">
           {message.content}
+        </div>
       </div>
-    </div>
-  );
-}
-
-function IconBtn({
-  children,
-  onClick,
-  title,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  title?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="rounded-md p-1 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-    >
-      {children}
-    </button>
-  );
-}
+    );
+  }
 
   const displayContent = formatContent(message.content);
-  const hasSections = message.sections && Object.values(message.sections).some(Boolean);
 
   return (
     <div className="fade-in-up">
@@ -142,7 +215,14 @@ function IconBtn({
           {message.pending ? (
             <>
               <TaskProgress events={message.taskProgress || []} />
-              <LoadingDots />
+              {message.streamingContent ? (
+                <div className="mt-2 rounded-2xl rounded-tl-md bg-surface px-3 py-2.5 sm:px-4 sm:py-3 text-sm leading-relaxed text-text-secondary whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                  {message.streamingContent}
+                  <span className="inline-block w-0.5 h-4 ml-0.5 bg-blue-400 animate-pulse" />
+                </div>
+              ) : (
+                <LoadingDots />
+              )}
             </>
           ) : (
             <>
@@ -185,55 +265,11 @@ function IconBtn({
                 <ReportSections sections={message.sections} />
               )}
               {view === "diagram" && <DiagramView message={message} />}
-              {view === "raw" && (
-                <pre className="rounded-lg border border-border bg-surface p-4 text-xs font-mono overflow-x-auto max-h-96">
-                  {JSON.stringify(message.raw ?? message, null, 2)}
-                </pre>
-              )}
+              {view === "raw" && <RawJsonView data={message.raw ?? message} />}
             </>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ToolbarBtn({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
-        active
-          ? "bg-foreground text-background"
-          : "text-text-secondary hover:bg-surface-hover"
-      }`}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
-function LoadingDots() {
-  return (
-    <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-md bg-surface px-4 py-4 w-fit">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="loading-dot h-1.5 w-1.5 rounded-full bg-text-secondary"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
     </div>
   );
 }
@@ -262,7 +298,6 @@ function DiagramView({ message }: { message: Message }) {
               }
             }
           }
-          // Find the user query that preceded this message
           const userMsg = (message.raw as any)?.query || "";
           const res = await api.getDiagramFromReport({
             query: userMsg,
@@ -357,25 +392,5 @@ function DiagramView({ message }: { message: Message }) {
         </IconBtn>
       </div>
     </div>
-  );
-}
-
-function IconBtn({
-  children,
-  onClick,
-  title,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  title?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="rounded-md p-1 text-text-secondary hover:bg-surface-hover hover:text-foreground"
-    >
-      {children}
-    </button>
   );
 }
