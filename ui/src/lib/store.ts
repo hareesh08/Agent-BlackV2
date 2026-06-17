@@ -137,7 +137,6 @@ export const useAppStore = create<AppState>()(
     {
       name: "agent-black-store",
       partialize: (s) => ({
-        messages: s.messages,
         darkMode: s.darkMode,
         provider: s.provider,
       }),

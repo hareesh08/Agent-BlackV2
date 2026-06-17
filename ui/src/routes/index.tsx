@@ -212,14 +212,11 @@ function ChatPage() {
       return;
     }
 
-    api
-      .queryHistory()
-      .then((history) => {
-        const latestMessages = history.length > 0 ? historyItemToMessages(history[0]) : [];
-        replaceAllMessages(latestMessages);
-        setChatLocked(latestMessages.length > 0);
-      })
-      .catch(() => undefined);
+    // Default: always start with a clean slate (new research window).
+    // History is accessible from the sidebar / History page.
+    clearMessages();
+    replaceAllMessages([]);
+    setChatLocked(false);
   }, [clearMessages, navigate, replaceAllMessages, search.new, search.historyId]);
 
   useEffect(() => {
