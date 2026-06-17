@@ -19,7 +19,7 @@ const stepMeta: Record<
   submitted: { label: "Query submitted", group: "orchestrator" },
   validating_query: { label: "Validating query", group: "orchestrator" },
   discovering_agents: { label: "Discovering agents", group: "orchestrator" },
-  routing: { label: "Selecting agents", group: "orchestrator" },
+  routing: { label: "Routing to agents", group: "orchestrator" },
   selecting_agents: { label: "Selecting agents", group: "orchestrator" },
   decomposing_task: { label: "Decomposing task", group: "orchestrator" },
   aggregating: { label: "Aggregating results", group: "output" },
@@ -119,7 +119,7 @@ function ElapsedTimer({ events }: { events: TaskEvent[] }) {
   useEffect(() => {
     if (events.length === 0) return;
 
-    const firstTs = Math.min(...events.map((e) => toMs(e.timestamp)));
+    const firstTs = events.reduce((min, e) => Math.min(min, toMs(e.timestamp)), Infinity);
     startRef.current = firstTs;
 
     const tick = () => {
@@ -135,6 +135,13 @@ function ElapsedTimer({ events }: { events: TaskEvent[] }) {
 
   const isRunning = events.some((e) => e.status === "running");
   const isComplete = events.some((e) => e.step === "aggregating" && e.status === "complete");
+
+  useEffect(() => {
+    if (isComplete && intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, [isComplete]);
 
   if (isComplete) {
     const lastEvent = events.find((e) => e.step === "aggregating" && e.status === "complete");
@@ -200,6 +207,35 @@ function orderSteps(steps: string[]): string[] {
     const bi = order.indexOf(b);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
+}
+
+function ActiveToolsIndicator({ agentEvents }: { agentEvents: TaskEvent[] }) {
+  const activeTools: { agent: string; tool: string }[] = [];
+  for (const ev of agentEvents) {
+    if (ev.status === "running") {
+      const tools = parseRunningTools(ev.detail);
+      const agentLabel = stepMeta[ev.step]?.label || ev.step;
+      for (const t of tools) {
+        activeTools.push({ agent: agentLabel, tool: t });
+      }
+    }
+  }
+  if (activeTools.length === 0) return null;
+  return (
+    <div className="mt-2 flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1">
+      <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
+      <span className="text-[10px] font-medium text-blue-300">
+        Invoking:{" "}
+        {activeTools.map((at, i) => (
+          <span key={at.tool}>
+            {i > 0 && " + "}
+            <span className="text-blue-200">{at.tool.replace(/_/g, " ")}</span>
+            <span className="text-blue-400/60"> on {at.agent}</span>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
 }
 
 export function TaskProgress({ events }: { events: TaskEvent[] }) {
@@ -394,34 +430,7 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
           </div>
         )}
 
-        {(() => {
-          const activeTools: { agent: string; tool: string }[] = [];
-          for (const ev of agentEvents) {
-            if (ev.status === "running") {
-              const tools = parseRunningTools(ev.detail);
-              const agentLabel = stepMeta[ev.step]?.label || ev.step;
-              for (const t of tools) {
-                activeTools.push({ agent: agentLabel, tool: t });
-              }
-            }
-          }
-          if (activeTools.length === 0) return null;
-          return (
-            <div className="mt-2 flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1">
-              <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
-              <span className="text-[10px] font-medium text-blue-300">
-                Invoking:{" "}
-                {activeTools.map((at, i) => (
-                  <span key={at.tool}>
-                    {i > 0 && " + "}
-                    <span className="text-blue-200">{at.tool.replace(/_/g, " ")}</span>
-                    <span className="text-blue-400/60"> on {at.agent}</span>
-                  </span>
-                ))}
-              </span>
-            </div>
-          );
-        })()}
+        <ActiveToolsIndicator agentEvents={agentEvents} />
       </div>
     </div>
   );
