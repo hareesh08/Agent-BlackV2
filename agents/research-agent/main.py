@@ -35,6 +35,7 @@ def capabilities():
     return CAPABILITIES
 
 @app.get("/.well-known/agent-card")
+@app.get("/.well-known/agent-card.json")
 def agent_card():
     return agent_card_to_legacy_dict(AGENT_CARD)
 

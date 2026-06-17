@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from fastapi import APIRouter
 from app.models import SettingsUpdate, SettingsResponse, LLMSettings
-from shared.config import get_setting, set_setting, get_all_settings, AGENT_URLS
+from shared.config import get_setting, set_setting, get_all_settings, get_agent_urls
 
 router = APIRouter(tags=["settings"])
 
@@ -35,7 +35,7 @@ def get_settings():
         },
         kaggle_username=get_setting("KAGGLE_USERNAME", ""),
         kaggle_key_set=bool(get_setting("KAGGLE_KEY")),
-        agent_urls=AGENT_URLS,
+        agent_urls=get_agent_urls(),
     )
 
 

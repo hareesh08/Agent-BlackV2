@@ -7,7 +7,7 @@ import time
 import asyncio
 from fastapi import APIRouter, HTTPException
 from app.models import SystemStatus
-from shared.config import get_setting, AGENT_URLS
+from shared.config import get_setting, get_agent_urls
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PYTHON = sys.executable
@@ -16,11 +16,22 @@ LOGS_DIR = os.path.join(ROOT, "logs")
 agent_processes = {}
 agent_start_time = time.time()
 
-AGENTS = [
-    {"name": "research-agent", "port": 8001, "url": AGENT_URLS["research"], "dir": os.path.join("agents", "research-agent")},
-    {"name": "solution-agent", "port": 8002, "url": AGENT_URLS["solution"], "dir": os.path.join("agents", "solution-agent")},
-    {"name": "experiment-agent", "port": 8003, "url": AGENT_URLS["experiment"], "dir": os.path.join("agents", "experiment-agent")},
-]
+def _build_agents():
+    urls = get_agent_urls()
+    return [
+        {"name": "research-agent", "port": 8001, "url": urls["research"], "dir": os.path.join("agents", "research-agent")},
+        {"name": "solution-agent", "port": 8002, "url": urls["solution"], "dir": os.path.join("agents", "solution-agent")},
+        {"name": "experiment-agent", "port": 8003, "url": urls["experiment"], "dir": os.path.join("agents", "experiment-agent")},
+    ]
+
+
+def _get_agents():
+    global AGENTS
+    AGENTS = _build_agents()
+    return AGENTS
+
+
+AGENTS = _build_agents()
 
 router = APIRouter(tags=["control"])
 
@@ -46,13 +57,14 @@ async def _check_agent(agent: dict) -> str:
 
 
 async def _check_all_agents() -> dict[str, str]:
+    agents = _get_agents()
     results = await asyncio.gather(
-        *[_check_agent(a) for a in AGENTS],
+        *[_check_agent(a) for a in agents],
         return_exceptions=True,
     )
     return {
         a["name"]: (r if isinstance(r, str) else "stopped")
-        for a, r in zip(AGENTS, results)
+        for a, r in zip(agents, results)
     }
 
 
@@ -82,7 +94,7 @@ def start_agents():
         )
     os.makedirs(LOGS_DIR, exist_ok=True)
     started = []
-    for agent in AGENTS:
+    for agent in _get_agents():
         name = agent["name"]
         if name in agent_processes and agent_processes[name].poll() is None:
             started.append({"name": name, "status": "already_running"})
@@ -115,7 +127,7 @@ def stop_agents():
 
 @router.get("/agents/{name}/logs")
 def get_agent_logs(name: str):
-    if name not in [a["name"] for a in AGENTS]:
+    if name not in [a["name"] for a in _get_agents()]:
         raise HTTPException(status_code=404, detail=f"Unknown agent: {name}")
     log_path = os.path.join(LOGS_DIR, f"{name}.log")
     err_path = os.path.join(LOGS_DIR, f"{name}-err.log")
@@ -137,7 +149,7 @@ async def get_agent_stats():
     return {
         "total_queries": get_query_count(),
         "active_agents": sum(1 for s in agents.values() if s == "running"),
-        "total_agents": len(AGENTS),
+        "total_agents": len(_get_agents()),
         "uptime": time.time() - agent_start_time,
         "avg_response_time": get_avg_response_time(),
     }
