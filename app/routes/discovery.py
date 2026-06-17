@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import APIRouter, HTTPException
 import httpx
 from app.models import AgentCardResponse
-from shared.config import AGENT_URLS
+from shared.config import get_agent_urls
 from shared.a2a_sdk import A2A_CARD_PATH
 from app.database import save_agent_discovery, get_agent_discovery
 
@@ -17,17 +17,19 @@ AGENT_NAMES = {
     "experiment": "ML Experiment Agent",
 }
 
-AGENT_META = {
-    "research": {"name": "Research Agent", "port": 8001, "url": AGENT_URLS.get("research", "http://localhost:8001")},
-    "solution": {"name": "Solution Agent", "port": 8002, "url": AGENT_URLS.get("solution", "http://localhost:8002")},
-    "experiment": {"name": "Experiment Agent", "port": 8003, "url": AGENT_URLS.get("experiment", "http://localhost:8003")},
-}
+def _get_agent_meta():
+    urls = get_agent_urls()
+    return {
+        "research": {"name": "Research Agent", "port": 8001, "url": urls.get("research", "http://localhost:8001")},
+        "solution": {"name": "Solution Agent", "port": 8002, "url": urls.get("solution", "http://localhost:8002")},
+        "experiment": {"name": "Experiment Agent", "port": 8003, "url": urls.get("experiment", "http://localhost:8003")},
+    }
 
 
 @router.get("/agents/discover")
 async def discover_agents():
     results = {}
-    for key, url in AGENT_URLS.items():
+    for key, url in get_agent_urls().items():
         try:
             async with httpx.AsyncClient(timeout=5) as client:
                 r = await client.get(f"{url}{A2A_CARD_PATH}")
@@ -53,9 +55,10 @@ async def discover_agents():
 
 @router.get("/agents/{agent_name}/card", response_model=AgentCardResponse)
 async def get_agent_card(agent_name: str):
-    if agent_name not in AGENT_URLS:
+    urls = get_agent_urls()
+    if agent_name not in urls:
         raise HTTPException(status_code=404, detail=f"Unknown agent: {agent_name}")
-    url = AGENT_URLS[agent_name]
+    url = urls[agent_name]
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get(f"{url}{A2A_CARD_PATH}")
@@ -106,8 +109,9 @@ def get_discovered_agents():
     discovered = get_agent_discovery()
     if discovered:
         return {"agents": discovered}
+    urls = get_agent_urls()
     return {"agents": [
-        {"name": "research-agent", "port": 8001, "url": AGENT_URLS.get("research", "http://localhost:8001")},
-        {"name": "solution-agent", "port": 8002, "url": AGENT_URLS.get("solution", "http://localhost:8002")},
-        {"name": "experiment-agent", "port": 8003, "url": AGENT_URLS.get("experiment", "http://localhost:8003")},
+        {"name": "research-agent", "port": 8001, "url": urls.get("research", "http://localhost:8001")},
+        {"name": "solution-agent", "port": 8002, "url": urls.get("solution", "http://localhost:8002")},
+        {"name": "experiment-agent", "port": 8003, "url": urls.get("experiment", "http://localhost:8003")},
     ]}

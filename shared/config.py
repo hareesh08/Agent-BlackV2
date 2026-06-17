@@ -124,13 +124,11 @@ def _agent_url(key: str) -> str:
         return env_val
     return get_setting(key, _DEFAULT_AGENTS[APP_ENV].get(key, ""))
 
-AGENT_URLS = {
-    "research": _agent_url("RESEARCH_AGENT_URL"),
-    "solution": _agent_url("SOLUTION_AGENT_URL"),
-    "experiment": _agent_url("EXPERIMENT_AGENT_URL"),
-}
-
-HOST_AGENT_URL = _agent_url("HOST_AGENT_URL")
-RESEARCH_AGENT_URL = AGENT_URLS["research"]
-SOLUTION_AGENT_URL = AGENT_URLS["solution"]
-EXPERIMENT_AGENT_URL = AGENT_URLS["experiment"]
+def get_agent_urls() -> dict[str, str]:
+    """Read agent URLs fresh from DB/env every call (avoids stale module-level cache)."""
+    return {
+        "research": _agent_url("RESEARCH_AGENT_URL"),
+        "solution": _agent_url("SOLUTION_AGENT_URL"),
+        "experiment": _agent_url("EXPERIMENT_AGENT_URL"),
+        "host": _agent_url("HOST_AGENT_URL"),
+    }

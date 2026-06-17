@@ -9,7 +9,6 @@ import httpx
 from shared.a2a_sdk import send_text_task
 from shared.discovery import discover_agents, render_catalog
 from shared.llm import async_call_llm, extract_json
-from shared.config import AGENT_URLS
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ import httpx
 if __name__ != "__main__":
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from shared.config import AGENT_URLS
+from shared.config import get_agent_urls
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ async def discover_agents() -> list[dict[str, Any]]:
     Agents that fail discovery (offline, timeout, non-200) are silently skipped.
     """
     async with httpx.AsyncClient(timeout=DISCOVERY_TIMEOUT) as client:
-        tasks = [_fetch_agent(client, name, url) for name, url in AGENT_URLS.items()]
+        tasks = [_fetch_agent(client, name, url) for name, url in get_agent_urls().items()]
         results = await asyncio.gather(*tasks)
     return [r for r in results if r is not None]
 

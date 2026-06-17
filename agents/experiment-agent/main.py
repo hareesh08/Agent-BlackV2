@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from shared.models import AgentRequest, AgentResponse
 from shared.mcp import handle_mcp_request, MCP_TOOLS
 from shared.a2a_sdk import add_sdk_a2a_routes, agent_card_to_legacy_dict, build_agent_card
-from shared.config import EXPERIMENT_AGENT_URL
+from shared.config import get_agent_urls
 from tools import TASKS
 from agent import run_agent
 
@@ -24,7 +24,7 @@ CAPABILITIES = {
 AGENT_CARD = build_agent_card(
     name=AGENT_NAME,
     description=CAPABILITIES["description"],
-    base_url=EXPERIMENT_AGENT_URL,
+    base_url=get_agent_urls()["experiment"],
     tasks=TASKS,
 )
 
@@ -35,6 +35,7 @@ def capabilities():
     return CAPABILITIES
 
 @app.get("/.well-known/agent-card")
+@app.get("/.well-known/agent-card.json")
 def agent_card():
     return agent_card_to_legacy_dict(AGENT_CARD)
 
