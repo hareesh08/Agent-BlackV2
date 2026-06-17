@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from fastapi import FastAPI
 from shared.models import AgentRequest
 from shared.a2a_sdk import add_sdk_a2a_routes, agent_card_to_legacy_dict, build_agent_card
-from shared.config import HOST_AGENT_URL
+from shared.config import get_agent_urls
 from orchestrator import orchestrate
 
 app = FastAPI(title="Host Agent / Orchestrator")
@@ -19,7 +19,7 @@ TASKS = [
 AGENT_CARD = build_agent_card(
     name=AGENT_NAME,
     description="Orchestrates CV, NLP, and ML agents for research queries",
-    base_url=HOST_AGENT_URL,
+    base_url=get_agent_urls()["host"],
     tasks=TASKS,
 )
 
