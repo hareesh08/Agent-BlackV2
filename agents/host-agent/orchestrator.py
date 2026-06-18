@@ -49,6 +49,106 @@ AMBIGUOUS_HINTS = [
     "evaluation", "architecture", "experiment",
 ]
 
+# Deterministic domain → agent mapping for pre-routing checks.
+# Each agent owns a set of keyword hints; if the query strongly matches one
+# agent's domain AND that agent is offline, the system should refuse rather
+# than silently route to a wrong agent.
+AGENT_DOMAIN_HINTS: dict[str, list[str]] = {
+    "research": [
+        "computer vision", "image classification", "object detection", "segmentation",
+        "medical imaging", "video analytics", "vision-language", "vision", "cv ",
+        "cnn", "resnet", "yolo", "vit", "vision transformer", "diffusion",
+        "gan", "image generation", "image segmentation", "pose estimation",
+        "depth estimation", "optical flow", "3d reconstruction", "point cloud",
+        "face recognition", "face detection", "ocr", "scene understanding",
+    ],
+    "solution": [
+        "nlp", "natural language", "llm", "rag", "retrieval augmented",
+        "prompt engineering", "text classification", "summarization",
+        "conversational ai", "information extraction", "chatbot",
+        "named entity", "ner", "sentiment", "question answering", "qa ",
+        "language model", "gpt", "bert", "transformer nlp",
+        "text generation", "machine translation", "tokenization",
+        "embedding", "fine-tune", "fine tuning", "instruction tuning",
+    ],
+    "experiment": [
+        "experiment design", "experiment agent", "ml experiment",
+        "hyperparameter", "hyper-param", "hpo", "optuna",
+        "feature engineering", "feature selection", "time series",
+        "cross-validation", "k-fold", "ablation", "evaluation strategy",
+        "metric selection", "model selection", "model comparison",
+        "neural architecture search", "nas", "reinforcement learning",
+        "rl agent", "reward function", "policy gradient",
+    ],
+}
+
+# Friendly display names for each agent (used in error messages).
+AGENT_DISPLAY_NAMES: dict[str, str] = {
+    "research": "CV Research Agent",
+    "solution": "NLP Solution Agent",
+    "experiment": "ML Experiment Agent",
+}
+
+# ── Per-agent domain keywords for routing validation ────────────────────────
+# Used to filter out agents that don't match the query's domain.
+# If the LLM incorrectly selects an agent from the wrong domain, this filter
+# drops it. If the correct agent is offline, the query fails with
+# "no_suitable_agent" instead of silently routing to the wrong agent.
+
+AGENT_DOMAINS = {
+    "research": {
+        "description": "Computer Vision",
+        "keywords": [
+            "vision", "image", "video", "cv", "object detection", "segmentation",
+            "classification", "ocr", "face", "pose", "depth", "3d", "point cloud",
+            "medical imaging", "radiology", "ct", "mri", "x-ray", "histopathology",
+            "satellite", "aerial", "remote sensing", "document analysis",
+            "vision-language", "vlm", "clip", "sam", "diffusion", "gan",
+            "yolo", "resnet", "vit", "transformer", "cnn", "backbone",
+            "paper", "arxiv", "survey", "benchmark", "dataset",
+            "find papers", "search papers", "literature review",
+            "find datasets", "cv datasets", "image datasets",
+            "recommend models", "model recommendation", "architecture comparison",
+            "research", "proposal", "proof of concept",
+        ],
+    },
+    "solution": {
+        "description": "NLP Solutions",
+        "keywords": [
+            "nlp", "text", "language", "llm", "gpt", "bert", "transformer",
+            "rag", "retrieval", "embedding", "vector", "semantic search",
+            "prompt", "prompt engineering", "fine-tuning", "fine tuning",
+            "chatbot", "dialogue", "conversational", "qa", "question answering",
+            "summarization", "translation", "sentiment", "ner", "named entity",
+            "information extraction", "text classification", "spam detection",
+            "named entity recognition", "relation extraction",
+            "document", "corpus", "tokenization", "word embedding",
+            "openai", "anthropic", "gemini", "claude", "llama", "mistral",
+            "inference", "deployment", "serving", "pipeline",
+            "design rag", "rag pipeline", "knowledge base",
+            "llm benchmark", "llm evaluation", "prompt optimization",
+            "information extraction", "text processing",
+        ],
+    },
+    "experiment": {
+        "description": "ML Experiment Design",
+        "keywords": [
+            "experiment", "training", "hyperparameter", "tuning", "optimization",
+            "metric", "evaluation", "accuracy", "precision", "recall", "f1",
+            "auc", "roc", "confusion matrix", "cross validation",
+            "feature engineering", "feature selection", "data preprocessing",
+            "model selection", "model comparison", "ablation",
+            "benchmark", "leaderboard", "baseline",
+            "time series", "forecasting", "regression",
+            "pipeline", "workflow", "mlops", "tracking", "mlflow",
+            "explainability", "interpretability", "shap", "lime",
+            "hyperparameter tuning", "grid search", "random search",
+            "evaluation plan", "experiment design", "experiment planning",
+            "model explainability", "feature importance",
+        ],
+    },
+}
+
 NOT_RESEARCH_RESPONSE = {
     "error": "not_research_query",
     "message": "This query does not appear to be related to AI/ML research. This system is a Research Assistant that helps with: Computer Vision, NLP, Machine Learning research — including literature review, dataset recommendation, model selection, experiment planning, and prototype guidance. Please ask a research-related question.",
@@ -186,9 +286,114 @@ Query: {query}"""
         }
 
 
+def _detect_target_agent_domain(query: str) -> str | None:
+    """Deterministically detect which agent domain a query belongs to.
+
+    Returns the agent key ("research", "solution", "experiment") if the query
+    has a strong domain signal, or None if it's ambiguous / cross-domain.
+    """
+    query_lower = query.lower()
+    scores: dict[str, int] = {}
+    for agent_name, hints in AGENT_DOMAIN_HINTS.items():
+        score = sum(1 for hint in hints if hint in query_lower)
+        if score > 0:
+            scores[agent_name] = score
+
+    if not scores:
+        return None
+
+    # Only return a clear winner — if two domains tie, it's ambiguous.
+    best_agent = max(scores, key=scores.get)
+    best_score = scores[best_agent]
+    second_best = sorted(scores.values(), reverse=True)[1] if len(scores) > 1 else 0
+    if best_score >= 2 and best_score > second_best:
+        return best_agent
+    return None
+
+
+def _check_offline_target(query: str, catalog: list[dict]) -> dict | None:
+    """Return an error response if the query targets an offline agent.
+
+    This runs *before* the LLM routing step so that we never silently
+    re-route a domain-specific query to the wrong agent.
+    """
+    target = _detect_target_agent_domain(query)
+    if target is None:
+        return None  # ambiguous — let the LLM decide
+
+    catalog_by_name = {a["name"]: a for a in catalog}
+    agent_info = catalog_by_name.get(target)
+    if agent_info is None:
+        return None  # agent not in catalog at all
+    if agent_info.get("online", True):
+        return None  # agent is online — proceed normally
+
+    display = AGENT_DISPLAY_NAMES.get(target, target)
+    logger.warning(
+        "[Step 1.5] Query targets OFFLINE agent '%s' (%s) — refusing to reroute",
+        target,
+        display,
+    )
+    return {
+        "error": "no_suitable_agent",
+        "message": (
+            f"No suitable agent is available for this query. "
+            f"The {display} is the best fit but is currently offline. "
+            f"Please start the agent service and try again."
+        ),
+        "offline_agent": target,
+    }
+
+
 def _build_routing_prompt(catalog_text: str, query: str) -> str:
     template = _load_prompt_safe(SELECTION_PROMPT_PATH)
     return template.replace("{{CATALOG}}", catalog_text).replace("{{QUERY}}", query)
+
+
+def _classify_query_domains(query: str) -> set[str]:
+    """Classify which agent domains match the query using keyword matching.
+
+    Returns a set of matching domain names: 'research', 'solution', 'experiment'.
+    Empty set means the query is too ambiguous to assign a domain.
+    """
+    query_lower = query.lower().strip()
+    matches: dict[str, int] = {}
+    for domain, info in AGENT_DOMAINS.items():
+        score = sum(1 for kw in info["keywords"] if kw in query_lower)
+        if score > 0:
+            matches[domain] = score
+    if not matches:
+        return set()
+    max_score = max(matches.values())
+    threshold = max(1, max_score // 3)
+    return {d for d, s in matches.items() if s >= threshold}
+
+
+def _filter_by_domain(
+    selected: list[dict], query: str
+) -> tuple[list[dict], list[str]]:
+    """Filter LLM-selected agents against the query's domain.
+
+    Drops agents that don't match the query's domain. If all agents are
+    dropped, returns an empty list with the drop reasons.
+    """
+    domains = _classify_query_domains(query)
+    if not domains:
+        return selected, []
+
+    valid: list[dict] = []
+    drops: list[str] = []
+    for entry in selected:
+        name = entry["name"]
+        if name in domains:
+            valid.append(entry)
+        else:
+            agent_desc = AGENT_DOMAINS.get(name, {}).get("description", name)
+            query_domains = ", ".join(AGENT_DOMAINS[d]["description"] for d in domains)
+            drops.append(
+                f"agent '{name}' ({agent_desc}) does not match query domain ({query_domains})"
+            )
+    return valid, drops
 
 
 def _parse_routing_decision(raw: str) -> dict:
@@ -342,6 +547,17 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         f"Found {len(catalog)} agents: {', '.join(a['name'] for a in catalog)}",
     )
 
+    # ── Step 1.5: Deterministic offline-agent guard ────────────────────────
+    # If the query clearly targets one agent domain and that agent is offline,
+    # refuse immediately instead of letting the LLM silently reroute.
+    offline_error = _check_offline_target(query, catalog)
+    if offline_error:
+        progress_callback(
+            "routing", "complete",
+            f"The {offline_error['offline_agent']} agent is offline — refusing to reroute.",
+        )
+        return offline_error
+
     # ── Step 2: LLM picks agents + tools from the live catalog ────────────────
     logger.info("[Step 2] LLM routing — selecting agents and tools...")
     progress_callback("routing", "running", "LLM is selecting agents and tools...")
@@ -377,6 +593,13 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         for drop in drop_reasons:
             logger.warning("[Step 2] Routing drop: %s", drop)
 
+    # Filter against query domain — drop agents that don't match
+    if selected:
+        selected, domain_drops = _filter_by_domain(selected, query)
+        if domain_drops:
+            for drop in domain_drops:
+                logger.warning("[Step 2] Domain filter drop: %s", drop)
+
     if not selected:
         if offline_agents:
             names = ", ".join(offline_agents)
@@ -388,13 +611,19 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
                 "message": f"No suitable agent available. The required agent(s) ({names}) are offline. Please start the agent service(s) and try again.",
                 "routing": routing,
             }
-        logger.info("[Step 2] No agents selected for this query")
-        progress_callback("routing", "complete", "No agents selected for this query")
-        not_research = _build_not_research_response(
-            routing.get("reasoning") or "No agent is relevant for this query."
-        )
-        not_research["routing"] = routing
-        return not_research
+        query_domains = _classify_query_domains(query)
+        if query_domains:
+            domain_names = ", ".join(AGENT_DOMAINS[d]["description"] for d in query_domains)
+            msg = f"No suitable agent available for this query. Required domain: {domain_names}."
+        else:
+            msg = "No suitable agent available for this query."
+        logger.info("[Step 2] No matching agent for query domains=%s", query_domains)
+        progress_callback("routing", "complete", msg)
+        return {
+            "error": "no_suitable_agent",
+            "message": msg,
+            "routing": routing,
+        }
 
     # Log final selected agents with IP, port, and MCP tools
     selected_names = [s["name"] for s in selected]
