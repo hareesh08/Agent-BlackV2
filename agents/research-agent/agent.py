@@ -103,7 +103,8 @@ Query: {query}
 Tool Results: {json.dumps(results, indent=2)}
 
 Synthesize a structured research response with:
-- papers, datasets, models, recommendations, evaluation_plan
+- papers (MUST include "url" field for each paper with the paper's actual link),
+  datasets (include "url" if available), models, recommendations, evaluation_plan
 Return ONLY valid JSON.
 """
     final_raw = await async_call_llm(

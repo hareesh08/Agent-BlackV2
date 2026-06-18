@@ -106,7 +106,8 @@ Query: {query}
 Tool Results: {json.dumps(results, indent=2)}
 
 Synthesize a structured solution response with:
-- papers, datasets, models, architecture, implementation_guidance
+- papers (MUST include "url" field for each paper with the paper's actual link),
+  datasets (include "url" if available), models, architecture, implementation_guidance
 Return ONLY valid JSON.
 """
     logger.info("Synthesizing response from %d tool results...", len(results))

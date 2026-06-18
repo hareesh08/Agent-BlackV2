@@ -106,7 +106,8 @@ Query: {query}
 Tool Results: {json.dumps(results, indent=2)}
 
 Synthesize a structured experiment design response with:
-- experiment_plan, metrics, hyperparameters, models, implementation_steps
+- papers (MUST include "url" field for each paper with the paper's actual link),
+  experiment_plan, metrics, hyperparameters, models, implementation_steps
 Return ONLY valid JSON.
 """
     logger.info("Synthesizing response from %d tool results...", len(results))
