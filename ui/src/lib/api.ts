@@ -90,10 +90,19 @@ export interface LLMSettings {
   base_url?: string;
 }
 
+export interface AgentNetworkConfig {
+  network_mode: boolean;
+  network_host: string;
+  network_port: number;
+}
+
 export interface SettingsResponse {
   llm_provider: string;
   providers: Record<string, LLMSettings>;
   agent_urls: Record<string, string>;
+  agent_network: Record<string, AgentNetworkConfig>;
+  kaggle_username?: string;
+  kaggle_key_set?: boolean;
 }
 
 export interface AgentCardInterface {

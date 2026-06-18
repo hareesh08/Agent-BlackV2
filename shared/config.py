@@ -109,11 +109,114 @@ def _agent_url(key: str) -> str:
         return env_val
     return get_setting(key, _DEFAULT_AGENTS[APP_ENV].get(key, ""))
 
-def get_agent_urls() -> dict[str, str]:
-    """Read agent URLs fresh from DB/env every call (avoids stale module-level cache)."""
+# ── Per-agent network mode (hybrid local/network support) ────────────────────
+# When network mode is ON for an agent, the orchestrator uses the configured
+# network URL. If that agent is unreachable, it is marked offline in discovery.
+# Agents in network mode are NOT started by start.py or the control panel
+# (they are assumed to be running on the remote host).
+
+_AGENT_KEY_MAP = {
+    "research": "RESEARCH_AGENT",
+    "solution": "SOLUTION_AGENT",
+    "experiment": "EXPERIMENT_AGENT",
+}
+
+AGENT_PORTS = {
+    "research": 8001,
+    "solution": 8002,
+    "experiment": 8003,
+    "host": 8000,
+}
+
+
+def is_agent_network_mode(agent_name: str) -> bool:
+    """Check if an agent is configured for network (remote) mode via SQLite.
+
+    When True, the orchestrator uses the configured network URL instead of
+    localhost. If the network agent is unreachable, it is marked offline.
+    """
+    prefix = _AGENT_KEY_MAP.get(agent_name, "")
+    if not prefix:
+        return False
+    return get_setting(f"{prefix}_NETWORK", "false").lower() == "true"
+
+
+def set_agent_network_mode(agent_name: str, enabled: bool):
+    """Toggle network mode for an agent (stored in SQLite)."""
+    prefix = _AGENT_KEY_MAP.get(agent_name)
+    if not prefix:
+        raise ValueError(f"Unknown agent: {agent_name}. Valid: {list(_AGENT_KEY_MAP.keys())}")
+    set_setting(f"{prefix}_NETWORK", "true" if enabled else "false")
+
+
+def get_agent_network_modes() -> dict[str, bool]:
+    """Return network mode flag for all agents."""
     return {
-        "research": _agent_url("RESEARCH_AGENT_URL"),
-        "solution": _agent_url("SOLUTION_AGENT_URL"),
-        "experiment": _agent_url("EXPERIMENT_AGENT_URL"),
-        "host": _agent_url("HOST_AGENT_URL"),
+        name: is_agent_network_mode(name)
+        for name in _AGENT_KEY_MAP
     }
+
+
+def get_agent_network_host(agent_name: str) -> str:
+    """Return the configured network host/IP for an agent (empty string if not set)."""
+    prefix = _AGENT_KEY_MAP.get(agent_name, "")
+    return get_setting(f"{prefix}_NETWORK_HOST", "") if prefix else ""
+
+
+def set_agent_network_host(agent_name: str, host: str):
+    """Set the network host/IP for a specific agent."""
+    prefix = _AGENT_KEY_MAP.get(agent_name)
+    if not prefix:
+        raise ValueError(f"Unknown agent: {agent_name}")
+    set_setting(f"{prefix}_NETWORK_HOST", host)
+
+
+def get_agent_network_port(agent_name: str) -> int:
+    """Return the configured network port for an agent (defaults to standard port)."""
+    prefix = _AGENT_KEY_MAP.get(agent_name, "")
+    default_port = AGENT_PORTS.get(agent_name, 0)
+    if not prefix:
+        return default_port
+    return int(get_setting(f"{prefix}_NETWORK_PORT", str(default_port)))
+
+
+def set_agent_network_port(agent_name: str, port: int):
+    """Set the network port for a specific agent."""
+    prefix = _AGENT_KEY_MAP.get(agent_name)
+    if not prefix:
+        raise ValueError(f"Unknown agent: {agent_name}")
+    set_setting(f"{prefix}_NETWORK_PORT", str(port))
+
+
+
+def get_agent_urls() -> dict[str, str]:
+    """Read agent URLs fresh every call (avoids stale module-level cache).
+
+    Priority per agent:
+      1. Environment variable  (e.g. RESEARCH_AGENT_URL — for Docker/CI)
+      2. Network-mode URL      (when network mode is ON and a host is set)
+      3. DB-stored URL          (manual override via settings API)
+      4. Environment default   (localhost for local, service names for production)
+    """
+    result = {}
+    for name, prefix in _AGENT_KEY_MAP.items():
+        url_key = f"{prefix}_URL"
+        # 1. Env var takes absolute precedence (Docker / CI override)
+        env_val = os.getenv(url_key)
+        if env_val:
+            result[name] = env_val
+        # 2. Network mode: build URL from host + port
+        elif is_agent_network_mode(name):
+            host = get_agent_network_host(name)
+            port = get_agent_network_port(name)
+            if host:
+                result[name] = f"http://{host}:{port}"
+            else:
+                # Network mode ON but no host — fall back to DB or default
+                result[name] = get_setting(url_key, _DEFAULT_AGENTS[APP_ENV].get(url_key, ""))
+        # 3/4. DB override or environment default
+        else:
+            result[name] = get_setting(url_key, _DEFAULT_AGENTS[APP_ENV].get(url_key, ""))
+    # host agent is always local / environment default
+    result["host"] = _agent_url("HOST_AGENT_URL")
+    return result

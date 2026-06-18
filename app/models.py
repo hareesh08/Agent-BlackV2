@@ -44,6 +44,7 @@ class SettingsUpdate(BaseModel):
     research_agent_url: Optional[str] = None
     solution_agent_url: Optional[str] = None
     experiment_agent_url: Optional[str] = None
+    agent_network: Optional[dict[str, dict[str, Any]]] = None
 
 class SettingsResponse(BaseModel):
     llm_provider: str
@@ -51,6 +52,7 @@ class SettingsResponse(BaseModel):
     kaggle_username: str = ""
     kaggle_key_set: bool = False
     agent_urls: dict[str, str]
+    agent_network: dict[str, dict[str, Any]] = {}
 
 class TechStackItem(BaseModel):
     category: str
