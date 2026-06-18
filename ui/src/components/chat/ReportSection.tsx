@@ -249,7 +249,13 @@ function DatasetCard({ dataset, index }: { dataset: SectionItem; index: number }
   return (
     <div className="rounded-lg border border-border bg-surface/50 p-3 hover:bg-surface-hover/40 transition-colors">
       <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-semibold text-foreground leading-snug">{name}</h4>
+        {url ? (
+          <a href={url} target="_blank" rel="noreferrer noopener" className="text-sm font-semibold text-foreground leading-snug hover:underline">
+            {name}
+          </a>
+        ) : (
+          <h4 className="text-sm font-semibold text-foreground leading-snug">{name}</h4>
+        )}
         {domain && (
           <span className="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400 capitalize">
             {domain}
@@ -274,16 +280,6 @@ function DatasetCard({ dataset, index }: { dataset: SectionItem; index: number }
         )}
       </div>
       {suitable && <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">{suitable}</p>}
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="mt-1.5 inline-block text-[11px] text-primary hover:underline"
-        >
-          {url}
-        </a>
-      )}
     </div>
   );
 }
@@ -377,7 +373,13 @@ function PaperCard({ paper, fallbackTitle }: { paper: PaperEntry; fallbackTitle:
 
   return (
     <div className="rounded-lg border border-border bg-surface/50 p-3 hover:bg-surface-hover/40 transition-colors">
-      <h4 className="text-sm font-medium text-foreground leading-snug">{title}</h4>
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer noopener" className="text-sm font-medium text-foreground leading-snug hover:underline">
+          {title}
+        </a>
+      ) : (
+        <h4 className="text-sm font-medium text-foreground leading-snug">{title}</h4>
+      )}
       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
         {authors && <span>{authors}</span>}
         {year && (
@@ -386,11 +388,6 @@ function PaperCard({ paper, fallbackTitle }: { paper: PaperEntry; fallbackTitle:
         {venue && <span className="italic">{venue}</span>}
       </div>
       {keyFinding && <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">{keyFinding}</p>}
-      {url && (
-        <a href={url} target="_blank" rel="noreferrer noopener" className="mt-1 inline-block text-[11px] text-primary hover:underline">
-          {url}
-        </a>
-      )}
       {Object.keys(extra).length > 0 && <KeyValueList data={extra} />}
     </div>
   );
