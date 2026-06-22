@@ -47,7 +47,7 @@ TOOL_SCHEMAS = {
         "Search academic papers across CrossRef, Semantic Scholar, and arXiv; failures are returned as partial errors.",
         {
             "query": _query_prop(),
-            "max_results": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25},
             "year": {"type": "string", "description": "Optional year or year range, for example 2024 or 2020-2024"},
             "domain": {"type": "string", "description": "Optional NLP domain filter, for example QA, summarization, RAG"},
             "source": {"type": "string", "description": "Comma-separated sources: all, crossref, semantic_scholar, arxiv", "default": "all"},
@@ -79,7 +79,7 @@ TOOL_SCHEMAS = {
             "topic": {"type": "string", "description": "Dataset topic, for example question answering, summarization"},
             "domain": {"type": "string", "description": "NLP domain, for example QA, NER, dialogue, classification", "default": "nlp"},
             "task": {"type": "string", "description": "Dataset task, for example extractive-qa, text-classification"},
-            "max_results": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25},
             "sources": {"type": "array", "items": {"type": "string", "enum": ["huggingface", "kaggle", "paperswithcode"]}, "default": ["huggingface", "kaggle", "paperswithcode"]},
         },
         ["query"],
@@ -116,7 +116,7 @@ TOOL_SCHEMAS = {
             "url": {"type": "string", "description": "Paper URL"},
             "arxiv_id": {"type": "string", "description": "arXiv ID, for example 2401.12345"},
             "source": {"type": "string", "description": "auto, crossref, semantic_scholar, or arxiv", "default": "auto"},
-            "max_results": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
         },
     ),
     "prompt_optimizer": _schema(

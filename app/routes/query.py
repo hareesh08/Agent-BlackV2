@@ -337,6 +337,7 @@ async def stream_task_events(task_id: str):
     async def event_generator():
         nonlocal sent_events
         start = asyncio.get_event_loop().time()
+        last_event_count = 0
         while True:
             elapsed = asyncio.get_event_loop().time() - start
             if elapsed > SSE_TIMEOUT:
@@ -356,6 +357,9 @@ async def stream_task_events(task_id: str):
             if task and task["status"] in ("complete", "error"):
                 yield f"event: done\ndata: {json.dumps(task)}\n\n"
                 return
+            if len(events) == last_event_count:
+                yield ": heartbeat\n\n"
+            last_event_count = len(events)
             await asyncio.sleep(0.5)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

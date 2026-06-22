@@ -182,10 +182,23 @@ function ToolPill({ name, delay }: { name: string; delay: number }) {
 }
 
 function deduplicateEvents(events: TaskEvent[]): TaskEvent[] {
+  const statusPriority: Record<string, number> = {
+    error: 3,
+    complete: 2,
+    running: 1,
+  };
   const latest = new Map<string, TaskEvent>();
   for (const ev of events) {
     const existing = latest.get(ev.step);
-    if (!existing || ev.timestamp >= existing.timestamp) {
+    if (!existing) {
+      latest.set(ev.step, ev);
+      continue;
+    }
+    const evPriority = statusPriority[ev.status] ?? 0;
+    const existPriority = statusPriority[existing.status] ?? 0;
+    if (evPriority > existPriority) {
+      latest.set(ev.step, ev);
+    } else if (evPriority === existPriority && ev.timestamp >= existing.timestamp) {
       latest.set(ev.step, ev);
     }
   }
@@ -222,9 +235,9 @@ function ActiveToolsIndicator({ agentEvents }: { agentEvents: TaskEvent[] }) {
   }
   if (activeTools.length === 0) return null;
   return (
-    <div className="mt-2 flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1">
-      <Loader2 className="h-3 w-3 animate-spin text-blue-400" />
-      <span className="text-[10px] font-medium text-blue-300">
+    <div className="mt-2 ml-5 flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1.5">
+      <Loader2 className="h-3 w-3 animate-spin text-blue-400 shrink-0" />
+      <span className="text-[10px] font-medium text-blue-300 leading-relaxed">
         Invoking:{" "}
         {activeTools.map((at, i) => (
           <span key={at.tool}>
@@ -334,11 +347,11 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
         </div>
 
         {hasAgents && (
-          <div className="relative mt-1 ml-0">
-            <div className="absolute left-[7px] top-0 h-2 w-px bg-border" />
+          <div className="relative mt-2 ml-0">
+            <div className="absolute left-[7px] top-0 bottom-0 w-px bg-border" />
 
-            <div className="ml-5 mt-1 rounded-lg border border-border/50 bg-background/50 p-2">
-              <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+            <div className="ml-5 rounded-lg border border-border/50 bg-background/50 p-2.5">
+              <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
                 <ChevronRight className="h-2.5 w-2.5" />
                 Invoking sub-agents over A2A
                 {activeAgentCount > 0 && (
@@ -352,7 +365,7 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                   </span>
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {agentEvents.map((ev) => {
                   const meta = stepMeta[ev.step];
                   const agentKey = ev.step.replace("_task", "");
@@ -362,7 +375,7 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                   return (
                     <div key={ev.step} className="group">
                       <div
-                        className={`flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors ${
+                        className={`flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors ${
                           ev.status === "running" ? `${colors.bg} ring-1 ${colors.ring}` : ""
                         }`}
                       >
@@ -390,7 +403,7 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                       </div>
 
                       {tools.length > 0 && (
-                        <div className="ml-4 mt-0.5 flex flex-wrap gap-1 pl-2 border-l border-border/30 py-0.5">
+                        <div className="ml-5 mt-1 flex flex-wrap gap-1 pl-2 border-l border-border/30 py-0.5">
                           {tools.map((tool, i) => (
                             <ToolPill key={tool} name={tool} delay={i * 50} />
                           ))}
@@ -400,12 +413,14 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
                   );
                 })}
               </div>
+
+              <ActiveToolsIndicator agentEvents={agentEvents} />
             </div>
           </div>
         )}
 
         {outputEvents.length > 0 && (
-          <div className="space-y-0.5 mt-1">
+          <div className="space-y-0.5 mt-2">
             {outputEvents.map((ev) => {
               const meta = stepMeta[ev.step];
               return (
@@ -429,8 +444,6 @@ export function TaskProgress({ events }: { events: TaskEvent[] }) {
             })}
           </div>
         )}
-
-        <ActiveToolsIndicator agentEvents={agentEvents} />
       </div>
     </div>
   );

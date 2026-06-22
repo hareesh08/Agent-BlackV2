@@ -49,7 +49,7 @@ TOOL_SCHEMAS = {
         "Search academic papers across CrossRef, Semantic Scholar, and arXiv; failures are returned as partial errors.",
         {
             "query": _query_prop(),
-            "max_results": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25},
             "year": {"type": "string", "description": "Optional year or year range, for example 2024 or 2020-2024"},
             "domain": {"type": "string", "description": "Optional ML domain filter, for example time series, tabular, NLP"},
             "source": {"type": "string", "description": "Comma-separated sources: all, crossref, semantic_scholar, arxiv", "default": "all"},
@@ -86,7 +86,7 @@ TOOL_SCHEMAS = {
             "url": {"type": "string", "description": "Paper URL"},
             "arxiv_id": {"type": "string", "description": "arXiv ID, for example 2401.12345"},
             "source": {"type": "string", "description": "auto, crossref, semantic_scholar, or arxiv", "default": "auto"},
-            "max_results": {"type": "integer", "minimum": 1, "maximum": 20, "default": 5},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
         },
     ),
     "eval_metric_advisor": _schema(
@@ -124,7 +124,7 @@ TOOL_SCHEMAS = {
         {
             "query": _query_prop("Benchmark task or dataset query"),
             "task": {"type": "string", "description": "Specific benchmark task, for example GLUE, ImageNet, MMLU"},
-            "max_results": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 100, "default": 25},
             "sources": {"type": "array", "items": {"type": "string", "enum": ["paperswithcode"]}, "default": ["paperswithcode"]},
         },
         ["query"],

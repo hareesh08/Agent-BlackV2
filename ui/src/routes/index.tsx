@@ -12,6 +12,7 @@ export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>) => ({
     new: search.new === "1" ? "1" : undefined,
     historyId: typeof search.historyId === "string" ? search.historyId : undefined,
+    chatId: typeof search.chatId === "string" ? search.chatId : undefined,
   }),
   head: () => ({
     meta: [
@@ -202,6 +203,45 @@ function ChatPage() {
       return;
     }
 
+    if (search.chatId) {
+      if (useAppStore.getState().messages.length === 0) {
+        api
+          .getTask(search.chatId)
+          .then((task) => {
+            if (task.query) {
+              const userMsg: Message = {
+                id: `chat-user-${task.task_id}`,
+                role: "user",
+                content: task.query,
+                timestamp: (task.created_at || Date.now() / 1000) * 1000,
+              };
+              const sections = task.report ? buildSectionsFromReport(task.report) : undefined;
+              const content =
+                toDisplayString(task.report?.content)
+                || (task.report?.error === "not_research_query" || task.report?.error === "no_suitable_agent"
+                  ? toDisplayString(task.report?.message)
+                  : null)
+                || "Research complete. See report below.";
+              const assistantMsg: Message = {
+                id: `chat-asst-${task.task_id}`,
+                role: "assistant",
+                query: task.query,
+                taskId: task.task_id,
+                content,
+                timestamp: ((task.completed_at || task.created_at || Date.now() / 1000)) * 1000,
+                sections,
+                agentsUsed: task.agents_used?.length ? task.agents_used : undefined,
+                raw: task,
+              };
+              replaceAllMessages([userMsg, assistantMsg]);
+              setChatLocked(true);
+            }
+          })
+          .catch(() => undefined);
+      }
+      return;
+    }
+
     if (search.historyId) {
       api
         .getQueryByUuid(search.historyId)
@@ -218,7 +258,7 @@ function ChatPage() {
     clearMessages();
     replaceAllMessages([]);
     setChatLocked(false);
-  }, [clearMessages, navigate, replaceAllMessages, search.new, search.historyId]);
+  }, [clearMessages, navigate, replaceAllMessages, search.new, search.chatId, search.historyId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -239,6 +279,7 @@ function ChatPage() {
     clearMessages();
     replaceAllMessages([]);
     setChatLocked(false);
+    window.history.replaceState(null, "", "/");
   };
 
   const handleSubmit = async (text: string) => {
@@ -266,6 +307,7 @@ function ChatPage() {
 
     try {
       const { task_id } = await api.submitQuery(text);
+      window.history.replaceState(null, "", `?chatId=${task_id}`);
 
       api.streamTask(
         task_id,

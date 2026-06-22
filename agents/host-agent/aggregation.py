@@ -77,9 +77,9 @@ async def aggregate_results(
 
     agg_user = agg_template.format(
         agents=json.dumps(selected_names),
-        research=json.dumps(responses.get("research", {"result": {}}))[:6000],
-        solution=json.dumps(responses.get("solution", {"result": {}}))[:6000],
-        experiment=json.dumps(responses.get("experiment", {"result": {}}))[:6000],
+        research=json.dumps(responses.get("research", {"result": {}}))[:15000],
+        solution=json.dumps(responses.get("solution", {"result": {}}))[:15000],
+        experiment=json.dumps(responses.get("experiment", {"result": {}}))[:15000],
     )
 
     try:
@@ -88,12 +88,14 @@ async def aggregate_results(
                 system_prompt="You are a senior research synthesiser. Output ONLY valid JSON.",
                 user_prompt=agg_user,
                 json_mode=True,
+                timeout=120,
             )
         except Exception as e:
             logger.warning("[Step 4] Aggregator json_mode failed, retrying without it: %s", e)
             final_raw = await async_call_llm(
                 system_prompt="You are a senior research synthesiser. Output ONLY valid JSON.",
                 user_prompt=agg_user,
+                timeout=120,
             )
         return parse_aggregator_output(final_raw)
     except Exception as e:

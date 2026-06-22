@@ -108,7 +108,7 @@ def _call_anthropic(system_prompt: str, user_prompt: str, cfg: dict, json_mode: 
         user_content += "\n\nReturn ONLY a single valid JSON object. No prose, no markdown fences."
     response = client.messages.create(
         model=cfg["anthropic_model"],
-        max_tokens=4096,
+        max_tokens=8192,
         system=system_prompt,
         messages=[{"role": "user", "content": user_content}],
     )
@@ -164,6 +164,16 @@ def call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False) -> s
     raise RuntimeError(f"LLM call failed after {LLM_MAX_RETRIES} attempts: {last_error}")
 
 
-async def async_call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
-    """Async wrapper around call_llm that runs in a thread to avoid blocking the event loop."""
+async def async_call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float = 120) -> str:
+    """Async wrapper around call_llm that runs in a thread to avoid blocking the event loop.
+
+    Args:
+        timeout: Maximum seconds to wait for the LLM call (including retries).
+                 Defaults to 120s. Set to 0 or None to disable timeout.
+    """
+    if timeout and timeout > 0:
+        return await asyncio.wait_for(
+            asyncio.to_thread(call_llm, system_prompt, user_prompt, json_mode=json_mode),
+            timeout=timeout,
+        )
     return await asyncio.to_thread(call_llm, system_prompt, user_prompt, json_mode=json_mode)

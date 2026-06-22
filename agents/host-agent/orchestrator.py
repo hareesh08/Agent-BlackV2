@@ -16,14 +16,11 @@ from shared.discovery import discover_agents, render_catalog
 from shared.llm import async_call_llm
 from shared.logging_setup import LogTimer
 
-from constants import AGENT_DOMAINS, AGENT_DISPLAY_NAMES, NOT_RESEARCH_RESPONSE
+from constants import NOT_RESEARCH_RESPONSE
 from validation import (
     build_not_research_response,
     validate_research_query,
-    classify_query_domains,
-    filter_by_domain,
 )
-from offline_check import check_offline_target
 from routing import parse_routing_decision, filter_routing_against_catalog, build_routing_prompt
 from dispatch import dispatch_to_agents
 from aggregation import aggregate_results
@@ -56,6 +53,8 @@ async def orchestrate(query: str, progress_callback=None) -> dict:
 async def _orchestrate_inner(query: str, progress_callback) -> dict:
     logger.info("=" * 60)
     logger.info("ORCHESTRATION START  query=%s", query[:200])
+
+    progress_callback("submitted", "complete", "Query submitted")
 
     # ── Step 0: Research-relevance gate ────────────────────────────────────────
     logger.info("[Step 0] Validating research relevance...")
@@ -92,12 +91,6 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
         f"Found {len(catalog)} agents: {', '.join(a['name'] for a in catalog)}",
     )
 
-    # ── Step 1.5: Deterministic offline-agent guard ────────────────────────
-    offline_error = check_offline_target(query, catalog)
-    if offline_error:
-        progress_callback("routing", "complete", f"The {offline_error['offline_agent']} agent is offline — refusing to reroute.")
-        return offline_error
-
     # ── Step 2: LLM picks agents + tools from the live catalog ────────────────
     logger.info("[Step 2] LLM routing — selecting agents and tools...")
     progress_callback("routing", "running", "LLM is selecting agents and tools...")
@@ -113,12 +106,6 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
     selected, drop_reasons, offline_agents = filter_routing_against_catalog(routing, catalog)
     for drop in drop_reasons:
         logger.warning("[Step 2] Routing drop: %s", drop)
-
-    # Filter against query domain
-    if selected:
-        selected, domain_drops = filter_by_domain(selected, query)
-        for drop in domain_drops:
-            logger.warning("[Step 2] Domain filter drop: %s", drop)
 
     if not selected:
         return _handle_no_agents(offline_agents, query, routing, progress_callback)
@@ -137,7 +124,21 @@ async def _orchestrate_inner(query: str, progress_callback) -> dict:
     logger.info("[Step 4] Aggregating results from %d agent(s)...", len(selected))
     progress_callback("aggregating", "running", "Aggregating results into final report...")
     with LogTimer(logger, "aggregation"):
-        result = await aggregate_results(selected_names, responses, SELECTION_PROMPT_PATH)
+        try:
+            result = await aggregate_results(selected_names, responses, SELECTION_PROMPT_PATH)
+        except Exception as agg_err:
+            logger.error("[Step 4] Aggregation raised: %s", agg_err)
+            progress_callback("aggregating", "error", f"Aggregation failed: {agg_err}")
+            result = {
+                "error": str(agg_err),
+                "tech_stack": [],
+                "literature_review": "",
+                "datasets": "",
+                "models": "",
+                "evaluation_plan": "",
+                "prototype_guidance": "",
+                "parse_warning": "aggregation_exception",
+            }
 
     progress_callback("aggregating", "complete", "Report finalized")
     result["selected_agents"] = selected_names
@@ -201,12 +202,7 @@ def _handle_no_agents(offline_agents, query, routing, progress_callback) -> dict
         progress_callback("routing", "complete", msg)
         return {"error": "no_suitable_agent", "message": f"{msg} Start the agent service(s) and try again.", "routing": routing}
 
-    query_domains = classify_query_domains(query)
-    if query_domains:
-        domain_names = ", ".join(AGENT_DOMAINS[d]["description"] for d in query_domains)
-        msg = f"No suitable agent available for this query. Required domain: {domain_names}."
-    else:
-        msg = "No suitable agent available for this query."
-    logger.info("[Step 2] No matching agent for query domains=%s", query_domains)
+    msg = "No suitable agent available for this query."
+    logger.info("[Step 2] No matching agent selected by LLM")
     progress_callback("routing", "complete", msg)
     return {"error": "no_suitable_agent", "message": msg, "routing": routing}

@@ -17,8 +17,8 @@ def _dedupe_papers(papers: list) -> list:
     return output
 
 
-def search_papers(query: str = "", max_results: int = 10, year: str = "", domain: str = "", source: str = "all") -> dict:
-    max_results = max(1, min(int(max_results or 10), 50))
+def search_papers(query: str = "", max_results: int = 25, year: str = "", domain: str = "", source: str = "all") -> dict:
+    max_results = max(1, min(int(max_results or 25), 100))
     selected_sources = source if isinstance(source, list) else [s.strip() for s in (source or "all").split(",") if s.strip()]
     if not selected_sources or "all" in selected_sources:
         selected_sources = ["crossref", "semantic_scholar", "arxiv"]

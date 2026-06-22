@@ -149,7 +149,7 @@ def search_datasets(
     max_results: int = 10,
     sources: list | None = None,
 ) -> dict:
-    max_results = max(1, min(int(max_results or 10), 50))
+    max_results = max(1, min(int(max_results or 25), 100))
     selected_sources = sources or ["huggingface", "kaggle", "paperswithcode"]
     search = _search_terms(query=query, topic=topic, domain=domain, task=task)
     datasets = []

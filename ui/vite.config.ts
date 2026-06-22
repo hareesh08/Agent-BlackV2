@@ -44,6 +44,14 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000",
           changeOrigin: true,
+          timeout: 0,
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              if (req.url?.includes("/query/stream/")) {
+                proxyReq.setHeader("Connection", "keep-alive");
+              }
+            });
+          },
         },
       },
     },

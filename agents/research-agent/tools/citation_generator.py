@@ -138,9 +138,9 @@ def citation_generator(
     url: str = "",
     arxiv_id: str = "",
     source: str = "auto",
-    max_results: int = 5,
+    max_results: int = 10,
 ) -> dict:
-    max_results = max(1, min(int(max_results or 5), 20))
+    max_results = max(1, min(int(max_results or 10), 50))
     selected_source = source or "auto"
     errors = []
     matched = {}

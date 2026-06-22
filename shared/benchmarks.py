@@ -110,8 +110,8 @@ def get_task(task_slug: str) -> dict:
     return _safe_get_json(f"{PWC_BASE_URL}/tasks/{quote(task_slug)}/")
 
 
-def search_benchmarks(query: str = "", task: str = "", max_results: int = 10) -> dict:
-    max_results = max(1, min(int(max_results or 10), 50))
+def search_benchmarks(query: str = "", task: str = "", max_results: int = 25) -> dict:
+    max_results = max(1, min(int(max_results or 25), 100))
     task_name = task or query
     benchmarks = []
     errors = []

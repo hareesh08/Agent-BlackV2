@@ -1,9 +1,8 @@
-"""Query validation: research-relevance gate and domain classification."""
+"""Query validation: research-relevance gate."""
 
 from shared.llm import async_call_llm, extract_json
 
 from constants import (
-    AGENT_DOMAINS,
     RESEARCH_ACTIONS,
     RESEARCH_DOMAINS,
     NON_RESEARCH_PATTERNS,
@@ -136,45 +135,3 @@ async def validate_research_query(query: str) -> dict:
             "reason": "The query is ambiguous and the AI validator was unavailable.",
             "rule_based": rule_result,
         }
-
-
-def classify_query_domains(query: str) -> set[str]:
-    """Classify which agent domains match the query using keyword matching.
-
-    Returns a set of matching domain names: 'research', 'solution', 'experiment'.
-    Empty set means the query is too ambiguous to assign a domain.
-    """
-    query_lower = query.lower().strip()
-    matches: dict[str, int] = {}
-    for domain, info in AGENT_DOMAINS.items():
-        score = sum(1 for kw in info["keywords"] if kw in query_lower)
-        if score > 0:
-            matches[domain] = score
-    if not matches:
-        return set()
-    max_score = max(matches.values())
-    threshold = max(1, max_score // 3)
-    return {d for d, s in matches.items() if s >= threshold}
-
-
-def filter_by_domain(
-    selected: list[dict], query: str
-) -> tuple[list[dict], list[str]]:
-    """Drop agents that don't match the query's domain."""
-    domains = classify_query_domains(query)
-    if not domains:
-        return selected, []
-
-    valid: list[dict] = []
-    drops: list[str] = []
-    for entry in selected:
-        name = entry["name"]
-        if name in domains:
-            valid.append(entry)
-        else:
-            agent_desc = AGENT_DOMAINS.get(name, {}).get("description", name)
-            query_domains = ", ".join(AGENT_DOMAINS[d]["description"] for d in domains)
-            drops.append(
-                f"agent '{name}' ({agent_desc}) does not match query domain ({query_domains})"
-            )
-    return valid, drops

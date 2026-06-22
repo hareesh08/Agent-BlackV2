@@ -1,64 +1,4 @@
-"""Orchestrator constants: agent domains, keywords, and display names."""
-
-# ── Per-agent domain keywords for routing validation ────────────────────────
-# Used to filter out agents that don't match the query's domain.
-# If the LLM incorrectly selects an agent from the wrong domain, this filter
-# drops it. If the correct agent is offline, the query fails with
-# "no_suitable_agent" instead of silently routing to the wrong agent.
-
-AGENT_DOMAINS: dict[str, dict] = {
-    "research": {
-        "description": "Computer Vision",
-        "keywords": [
-            "vision", "image", "video", "cv", "object detection", "segmentation",
-            "classification", "ocr", "face", "pose", "depth", "3d", "point cloud",
-            "medical imaging", "radiology", "ct", "mri", "x-ray", "histopathology",
-            "satellite", "aerial", "remote sensing", "document analysis",
-            "vision-language", "vlm", "clip", "sam", "diffusion", "gan",
-            "yolo", "resnet", "vit", "transformer", "cnn", "backbone",
-            "paper", "arxiv", "survey", "benchmark", "dataset",
-            "find papers", "search papers", "literature review",
-            "find datasets", "cv datasets", "image datasets",
-            "recommend models", "model recommendation", "architecture comparison",
-            "research", "proposal", "proof of concept",
-        ],
-    },
-    "solution": {
-        "description": "NLP Solutions",
-        "keywords": [
-            "nlp", "text", "language", "llm", "gpt", "bert", "transformer",
-            "rag", "retrieval", "embedding", "vector", "semantic search",
-            "prompt", "prompt engineering", "fine-tuning", "fine tuning",
-            "chatbot", "dialogue", "conversational", "qa", "question answering",
-            "summarization", "translation", "sentiment", "ner", "named entity",
-            "information extraction", "text classification", "spam detection",
-            "named entity recognition", "relation extraction",
-            "document", "corpus", "tokenization", "word embedding",
-            "openai", "anthropic", "gemini", "claude", "llama", "mistral",
-            "inference", "deployment", "serving", "pipeline",
-            "design rag", "rag pipeline", "knowledge base",
-            "llm benchmark", "llm evaluation", "prompt optimization",
-            "information extraction", "text processing",
-        ],
-    },
-    "experiment": {
-        "description": "ML Experiment Design",
-        "keywords": [
-            "experiment", "training", "hyperparameter", "tuning", "optimization",
-            "metric", "evaluation", "accuracy", "precision", "recall", "f1",
-            "auc", "roc", "confusion matrix", "cross validation",
-            "feature engineering", "feature selection", "data preprocessing",
-            "model selection", "model comparison", "ablation",
-            "benchmark", "leaderboard", "baseline",
-            "time series", "forecasting", "regression",
-            "pipeline", "workflow", "mlops", "tracking", "mlflow",
-            "explainability", "interpretability", "shap", "lime",
-            "hyperparameter tuning", "grid search", "random search",
-            "evaluation plan", "experiment design", "experiment planning",
-            "model explainability", "feature importance",
-        ],
-    },
-}
+"""Orchestrator constants: research keywords and display names."""
 
 # Friendly display names for each agent (used in error messages).
 AGENT_DISPLAY_NAMES: dict[str, str] = {
@@ -94,6 +34,9 @@ RESEARCH_DOMAINS: list[str] = [
     "resnet", "yolo", "efficientnet", "mobilenet",
     "bert", "gpt", "t5", "whisper",
     "pytorch", "tensorflow", "keras", "opencv",
+    # Speech/audio
+    "speech recognition", "speech-to-text", "text-to-speech", "asr",
+    "audio processing", "voice", "acoustic model", "speaker recognition",
 ]
 
 RESEARCH_ACTIONS: list[str] = [
